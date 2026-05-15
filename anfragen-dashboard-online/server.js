@@ -205,11 +205,115 @@ function isAdminLoginCorrect(username, password) {
   return username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD;
 }
 
+
+
+function maintenancePage() {
+  return `
+    <!DOCTYPE html>
+    <html lang="de">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Website in Wartung | GrünWerk Gartenbau</title>
+      <style>
+        * { box-sizing: border-box; }
+        body {
+          margin: 0;
+          min-height: 100vh;
+          display: grid;
+          place-items: center;
+          font-family: Arial, sans-serif;
+          background:
+            radial-gradient(circle at top left, rgba(194, 232, 190, 0.65), transparent 38%),
+            radial-gradient(circle at bottom right, rgba(220, 245, 160, 0.55), transparent 40%),
+            #f6f3eb;
+          color: #193222;
+          padding: 24px;
+        }
+        .box {
+          width: min(720px, 100%);
+          padding: 52px;
+          border-radius: 36px;
+          background: rgba(255,255,255,0.88);
+          box-shadow: 0 34px 90px rgba(25, 50, 34, 0.16);
+          text-align: center;
+          border: 1px solid rgba(36,77,52,0.10);
+        }
+        .logo {
+          width: 66px;
+          height: 66px;
+          margin: 0 auto 24px;
+          display: grid;
+          place-items: center;
+          border-radius: 22px;
+          background: #244d34;
+          color: white;
+          font-size: 30px;
+          box-shadow: 0 18px 38px rgba(25, 50, 34, 0.22);
+        }
+        h1 {
+          margin: 0;
+          font-size: clamp(36px, 7vw, 64px);
+          line-height: 0.95;
+          letter-spacing: -0.06em;
+          color: #193222;
+        }
+        p {
+          margin: 22px auto 0;
+          max-width: 540px;
+          font-size: 18px;
+          line-height: 1.7;
+          color: #667466;
+        }
+        .note {
+          margin-top: 30px;
+          display: inline-flex;
+          border-radius: 999px;
+          background: #e1eadb;
+          color: #244d34;
+          padding: 12px 18px;
+          font-weight: 700;
+          font-size: 14px;
+        }
+      </style>
+    </head>
+    <body>
+      <main class="box">
+        <div class="logo">☘</div>
+        <h1>Website in Wartung</h1>
+        <p>Wir überarbeiten gerade unsere Website. Bitte versuche es später erneut. Vielen Dank für dein Verständnis.</p>
+        <div class="note">GrünWerk Gartenbau</div>
+      </main>
+    </body>
+    </html>
+  `;
+}
+
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.use((req, res, next) => {
+  const maintenanceMode = String(process.env.MAINTENANCE_MODE || '').toLowerCase() === 'true';
+
+  const allowedPrefixes = [
+    '/admin',
+    '/login',
+    '/logout',
+    '/style.css',
+    '/favicon.ico'
+  ];
+
+  const isAllowedPath = allowedPrefixes.some(prefix => req.path.startsWith(prefix));
+
+  if (maintenanceMode && !isAllowedPath) {
+    return res.status(503).send(maintenancePage());
+  }
+
+  next();
+});
 app.use(session({
   secret: process.env.SESSION_SECRET || 'bitte-aendern',
   resave: false,

@@ -6,72 +6,196 @@
   <title>Admin Dashboard</title>
   <link rel="stylesheet" href="/style.css">
 </head>
-<body>
-  <header>
-    <h1>Anfragen Dashboard</h1>
-    <p>Geschützter Admin-Bereich</p>
+<body class="admin-body admin-pro-body">
+  <% 
+    const normalize = (value) => String(value || '').toLowerCase().trim();
+    const linesFrom = (a) => (a.nachricht || '').split('\n');
+    const getValueFrom = (a, label) => {
+      const line = linesFrom(a).find(item => item.startsWith(label + ':'));
+      return line ? line.replace(label + ':', '').trim() : '-';
+    };
+    const getDetailsFrom = (a) => {
+      const lines = linesFrom(a);
+      const detailsIndex = lines.findIndex(item => item.trim() === 'Details:');
+      return detailsIndex >= 0 ? lines.slice(detailsIndex + 1).join('\n').trim() : (a.nachricht || '-');
+    };
+    const getLeistung = (a) => a.kategorie || getValueFrom(a, 'Leistung') || 'Sonstiges';
+    const getDepartment = (a) => {
+      const leistung = normalize(getLeistung(a));
+      if (leistung.includes('winter')) return 'Winterdienst';
+      if (leistung.includes('pflaster') || leistung.includes('wege') || leistung.includes('terrasse')) return 'Pflaster & Wege';
+      if (leistung.includes('gestaltung') || leistung.includes('projekt') || leistung.includes('umgestaltung')) return 'Gartengestaltung';
+      if (leistung.includes('pflege') || leistung.includes('rasen') || leistung.includes('hecke')) return 'Gartenpflege';
+      return 'Sonstiges';
+    };
+    const statusKey = (status) => normalize(status || 'Neu').replaceAll(' ', '-');
+    const departments = [
+      { name: 'Gartengestaltung', icon: '🌿', subtitle: 'Planung, Umgestaltung & Konzepte' },
+      { name: 'Gartenpflege', icon: '✂️', subtitle: 'Rasen, Hecke, Beete & laufende Pflege' },
+      { name: 'Pflaster & Wege', icon: '🧱', subtitle: 'Wege, Terrassen & kleine Bauarbeiten' },
+      { name: 'Winterdienst', icon: '❄️', subtitle: 'Räumen, Streuen & Sicherheit im Winter' },
+      { name: 'Sonstiges', icon: '📌', subtitle: 'Alle weiteren Anfragen' }
+    ];
+    const total = anfragen.length;
+    const countStatus = (name) => anfragen.filter(a => (a.status || 'Neu') === name).length;
+    const grouped = departments.map(dep => ({ ...dep, items: anfragen.filter(a => getDepartment(a) === dep.name) }));
+  %>
+
+  <header class="admin-shell-header">
+    <a class="brand" href="/admin" aria-label="GrünWerk Admin Dashboard">
+      <span class="brand-icon">☘</span>
+      <span>
+        <strong>GrünWerk</strong>
+        <small>Admin Cockpit</small>
+      </span>
+    </a>
+    <div class="admin-header-actions">
+      <a class="button secondary" href="/" target="_blank">Website ansehen</a>
+      <form action="/logout" method="POST"><button class="danger" type="submit">Ausloggen</button></form>
+    </div>
   </header>
-  <main>
-    <section class="box">
-      <div class="topbar">
-        <form action="/admin" method="GET" style="flex: 1; min-width: 260px;">
-          <input name="suche" value="<%= suche %>" placeholder="Suchen nach Name, E-Mail, Status, Nachricht...">
-          <button type="submit">Suchen</button>
-          <a class="button" href="/admin">Zurücksetzen</a>
-        </form>
-        <form action="/logout" method="POST">
-          <button class="danger" type="submit">Ausloggen</button>
-        </form>
+
+  <main class="admin-pro-main">
+    <section class="admin-hero-panel">
+      <div>
+        <p class="admin-kicker">Anfragen Management</p>
+        <h1>Dashboard</h1>
+        <p class="admin-subline">Alle Kundenanfragen sauber nach Abteilungen, Status und Kontaktdaten sortiert.</p>
+      </div>
+      <div class="admin-hero-stats">
+        <div><span>Gesamt</span><strong><%= total %></strong></div>
+        <div><span>Neu</span><strong><%= countStatus('Neu') %></strong></div>
+        <div><span>In Arbeit</span><strong><%= countStatus('In Bearbeitung') %></strong></div>
+        <div><span>Erledigt</span><strong><%= countStatus('Erledigt') %></strong></div>
       </div>
     </section>
 
-    <section class="box">
-      <h2>Alle Anfragen</h2>
-      <% if (anfragen.length === 0) { %>
-        <p>Keine Anfragen gefunden.</p>
-      <% } else { %>
-        <table>
-          <thead>
-            <tr>
-              <th>Datum</th>
-              <th>Name</th>
-              <th>Kontakt</th>
-              <th>Kategorie</th>
-              <th>Nachricht</th>
-              <th>Status</th>
-              <th>Aktion</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% anfragen.forEach(a => { %>
-              <tr>
-                <td data-label="Datum"><%= a.datum %></td>
-                <td data-label="Name"><%= a.name %></td>
-                <td data-label="Kontakt"><%= a.email %><br><%= a.telefon || '-' %></td>
-                <td data-label="Kategorie"><%= a.kategorie %></td>
-                <td data-label="Nachricht"><%= a.nachricht %></td>
-                <td data-label="Status">
-                  <p class="status-<%= a.status.toLowerCase().replace(' ', '') %>"><%= a.status %></p>
-                  <form action="/admin/status/<%= a.id %>" method="POST">
-                    <select name="status">
-                      <option <%= a.status === 'Neu' ? 'selected' : '' %>>Neu</option>
-                      <option <%= a.status === 'In Bearbeitung' ? 'selected' : '' %>>In Bearbeitung</option>
-                      <option <%= a.status === 'Erledigt' ? 'selected' : '' %>>Erledigt</option>
-                    </select>
-                    <button type="submit">Speichern</button>
-                  </form>
-                </td>
-                <td data-label="Aktion">
-                  <form action="/admin/delete/<%= a.id %>" method="POST" onsubmit="return confirm('Diese Anfrage wirklich löschen?');">
-                    <button class="danger" type="submit">Löschen</button>
-                  </form>
-                </td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      <% } %>
+    <section class="admin-toolbar-panel">
+      <form action="/admin" method="GET" class="admin-pro-search">
+        <input name="suche" value="<%= suche %>" placeholder="Suchen nach Name, Telefon, E-Mail, Ort, Leistung oder Status...">
+        <button type="submit">Suchen</button>
+        <a class="button secondary" href="/admin">Zurücksetzen</a>
+      </form>
     </section>
+
+    <section class="department-overview">
+      <% grouped.forEach(dep => { %>
+        <a class="department-tile" href="#dep-<%= dep.name.toLowerCase().replaceAll(' ', '-').replaceAll('&', 'und') %>">
+          <span class="department-icon"><%= dep.icon %></span>
+          <div>
+            <strong><%= dep.name %></strong>
+            <small><%= dep.items.length %> Anfrage<%= dep.items.length === 1 ? '' : 'n' %></small>
+          </div>
+        </a>
+      <% }) %>
+    </section>
+
+    <% if (anfragen.length === 0) { %>
+      <section class="admin-panel empty-state">
+        <h2>Keine Anfragen gefunden.</h2>
+        <p>Neue Projektanfragen erscheinen automatisch hier.</p>
+      </section>
+    <% } else { %>
+      <section class="department-stack">
+        <% grouped.forEach(dep => { %>
+          <section class="department-section" id="dep-<%= dep.name.toLowerCase().replaceAll(' ', '-').replaceAll('&', 'und') %>">
+            <div class="department-section-head">
+              <div class="department-title-wrap">
+                <span class="department-big-icon"><%= dep.icon %></span>
+                <div>
+                  <p class="admin-kicker">Abteilung</p>
+                  <h2><%= dep.name %></h2>
+                  <p><%= dep.subtitle %></p>
+                </div>
+              </div>
+              <div class="department-count"><strong><%= dep.items.length %></strong><span>Anfrage<%= dep.items.length === 1 ? '' : 'n' %></span></div>
+            </div>
+
+            <% if (dep.items.length === 0) { %>
+              <div class="department-empty">Keine offenen Einträge in dieser Abteilung.</div>
+            <% } else { %>
+              <div class="department-request-grid">
+                <% dep.items.forEach(a => { 
+                  const leistung = getLeistung(a);
+                  const detailsText = getDetailsFrom(a);
+                  const budgetValue = a.budget || getValueFrom(a, 'Budget');
+                  const formattedBudget = budgetValue && budgetValue !== '-' ? (String(budgetValue).includes('€') ? budgetValue : budgetValue + ' €') : 'Nicht angegeben';
+                  const currentStatusKey = statusKey(a.status);
+                %>
+                  <article class="admin-request-card <%= currentStatusKey %>">
+                    <div class="admin-request-top">
+                      <div>
+                        <span class="status-pill status-pill-<%= currentStatusKey %>"><%= a.status || 'Neu' %></span>
+                        <h3><%= a.name %></h3>
+                        <p class="request-date"><%= a.datum %></p>
+                      </div>
+                      <div class="request-id">#<%= String(a.id || '').slice(-6) %></div>
+                    </div>
+
+                    <div class="admin-card-grid">
+                      <div class="mini-box primary-mini">
+                        <span>Leistung</span>
+                        <strong><%= leistung %></strong>
+                      </div>
+                      <div class="mini-box">
+                        <span>Budget</span>
+                        <strong><%= formattedBudget %></strong>
+                      </div>
+                      <div class="mini-box">
+                        <span>Telefon</span>
+                        <strong><%= a.telefon || '-' %></strong>
+                      </div>
+                      <div class="mini-box">
+                        <span>E-Mail</span>
+                        <strong><%= a.email || '-' %></strong>
+                      </div>
+                    </div>
+
+                    <div class="admin-section-block">
+                      <h4>Auftragsdaten</h4>
+                      <div class="data-list">
+                        <div><span>Adresse / Ort</span><strong><%= a.adresse || getValueFrom(a, 'Adresse / Ort') %></strong></div>
+                        <div><span>Auftragsart</span><strong><%= a.auftragsart || getValueFrom(a, 'Auftragsart') %></strong></div>
+                        <div><span>Grundstücksgröße</span><strong><%= a.groesse || getValueFrom(a, 'Grundstücksgröße') %></strong></div>
+                        <div><span>Zeitraum</span><strong><%= a.zeitraum || getValueFrom(a, 'Zeitraum') %></strong></div>
+                      </div>
+                    </div>
+
+                    <div class="admin-section-block muted-block">
+                      <h4>Kontakt & Planung</h4>
+                      <div class="data-list two">
+                        <div><span>Besichtigung</span><strong><%= a.besichtigung || getValueFrom(a, 'Besichtigung') %></strong></div>
+                        <div><span>Erreichbarkeit</span><strong><%= a.erreichbarkeit || getValueFrom(a, 'Erreichbarkeit') %></strong></div>
+                        <div><span>Kontaktart</span><strong><%= a.kontaktart || getValueFrom(a, 'Bevorzugte Kontaktart') %></strong></div>
+                      </div>
+                    </div>
+
+                    <details class="request-details-clean">
+                      <summary>Details zum Auftrag anzeigen</summary>
+                      <p><%= detailsText || '-' %></p>
+                    </details>
+
+                    <div class="admin-card-actions">
+                      <form action="/admin/status/<%= a.id %>" method="POST" class="status-form clean-status-form">
+                        <select name="status" aria-label="Status ändern">
+                          <option <%= a.status === 'Neu' ? 'selected' : '' %>>Neu</option>
+                          <option <%= a.status === 'In Bearbeitung' ? 'selected' : '' %>>In Bearbeitung</option>
+                          <option <%= a.status === 'Erledigt' ? 'selected' : '' %>>Erledigt</option>
+                        </select>
+                        <button type="submit">Status ändern</button>
+                      </form>
+                      <form action="/admin/delete/<%= a.id %>" method="POST" onsubmit="return confirm('Diese Anfrage wirklich löschen?');">
+                        <button class="danger ghost-danger" type="submit">Löschen</button>
+                      </form>
+                    </div>
+                  </article>
+                <% }) %>
+              </div>
+            <% } %>
+          </section>
+        <% }) %>
+      </section>
+    <% } %>
   </main>
 </body>
 </html>

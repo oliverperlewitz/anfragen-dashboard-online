@@ -6,24 +6,18 @@
   <title>Admin Login</title>
   <link rel="stylesheet" href="/style.css">
 </head>
-<body>
-  <header>
+<body class="admin-body">
+  <main class="login-box">
+    <div class="brand center"><span class="brand-icon">☘</span><span><strong>GrünWerk</strong><small>Admin</small></span></div>
     <h1>Admin Login</h1>
-    <p>Nur für dich</p>
-  </header>
-  <main>
-    <section class="box" style="max-width: 480px; margin: 0 auto;">
-      <% if (error) { %>
-        <div class="error"><%= error %></div>
-      <% } %>
-      <form action="/login" method="POST">
-        <label>Benutzername</label>
-        <input name="username" required>
-        <label>Passwort</label>
-        <input name="password" type="password" required>
-        <button type="submit">Einloggen</button>
-      </form>
-    </section>
+    <% if (error) { %><div class="error"><%= error %></div><% } %>
+    <form action="/login" method="POST">
+      <label>Benutzername</label>
+      <input name="username" required>
+      <label>Passwort</label>
+      <input name="password" type="password" required>
+      <button type="submit">Einloggen</button>
+    </form>
   </main>
 </body>
 </html>

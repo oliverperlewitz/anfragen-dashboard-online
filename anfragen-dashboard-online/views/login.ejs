@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>Admin Login</h1>
+    <p>Nur für dich</p>
+  </header>
+  <main>
+    <section class="box" style="max-width: 480px; margin: 0 auto;">
+      <% if (error) { %>
+        <div class="error"><%= error %></div>
+      <% } %>
+      <form action="/login" method="POST">
+        <label>Benutzername</label>
+        <input name="username" required>
+        <label>Passwort</label>
+        <input name="password" type="password" required>
+        <button type="submit">Einloggen</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

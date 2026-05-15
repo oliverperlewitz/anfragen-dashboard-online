@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>Anfragen Dashboard</h1>
+    <p>Geschützter Admin-Bereich</p>
+  </header>
+  <main>
+    <section class="box">
+      <div class="topbar">
+        <form action="/admin" method="GET" style="flex: 1; min-width: 260px;">
+          <input name="suche" value="<%= suche %>" placeholder="Suchen nach Name, E-Mail, Status, Nachricht...">
+          <button type="submit">Suchen</button>
+          <a class="button" href="/admin">Zurücksetzen</a>
+        </form>
+        <form action="/logout" method="POST">
+          <button class="danger" type="submit">Ausloggen</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="box">
+      <h2>Alle Anfragen</h2>
+      <% if (anfragen.length === 0) { %>
+        <p>Keine Anfragen gefunden.</p>
+      <% } else { %>
+        <table>
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Name</th>
+              <th>Kontakt</th>
+              <th>Kategorie</th>
+              <th>Nachricht</th>
+              <th>Status</th>
+              <th>Aktion</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% anfragen.forEach(a => { %>
+              <tr>
+                <td data-label="Datum"><%= a.datum %></td>
+                <td data-label="Name"><%= a.name %></td>
+                <td data-label="Kontakt"><%= a.email %><br><%= a.telefon || '-' %></td>
+                <td data-label="Kategorie"><%= a.kategorie %></td>
+                <td data-label="Nachricht"><%= a.nachricht %></td>
+                <td data-label="Status">
+                  <p class="status-<%= a.status.toLowerCase().replace(' ', '') %>"><%= a.status %></p>
+                  <form action="/admin/status/<%= a.id %>" method="POST">
+                    <select name="status">
+                      <option <%= a.status === 'Neu' ? 'selected' : '' %>>Neu</option>
+                      <option <%= a.status === 'In Bearbeitung' ? 'selected' : '' %>>In Bearbeitung</option>
+                      <option <%= a.status === 'Erledigt' ? 'selected' : '' %>>Erledigt</option>
+                    </select>
+                    <button type="submit">Speichern</button>
+                  </form>
+                </td>
+                <td data-label="Aktion">
+                  <form action="/admin/delete/<%= a.id %>" method="POST" onsubmit="return confirm('Diese Anfrage wirklich löschen?');">
+                    <button class="danger" type="submit">Löschen</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } %>
+    </section>
+  </main>
+</body>
+</html>

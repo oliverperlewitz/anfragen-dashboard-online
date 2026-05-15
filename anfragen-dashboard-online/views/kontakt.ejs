@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kontaktformular</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>Kontaktformular</h1>
+    <p>Schicke uns deine Anfrage</p>
+  </header>
+  <main>
+    <section class="box">
+      <% if (success) { %>
+        <div class="success">Deine Anfrage wurde erfolgreich gesendet.</div>
+      <% } %>
+      <form action="/anfrage" method="POST">
+        <label>Name *</label>
+        <input name="name" required>
+        <label>E-Mail *</label>
+        <input name="email" type="email" required>
+        <label>Telefon</label>
+        <input name="telefon">
+        <label>Kategorie</label>
+        <select name="kategorie">
+          <option>Produktfrage</option>
+          <option>Bestellung</option>
+          <option>Kooperation</option>
+          <option>Reklamation</option>
+          <option>Sonstiges</option>
+        </select>
+        <label>Nachricht *</label>
+        <textarea name="nachricht" required></textarea>
+        <button type="submit">Anfrage senden</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

@@ -4,7 +4,7 @@ const express = require('express');
 const session = require('express-session');
 const fs = require('fs');
 const path = require('path');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const crypto = require('crypto');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -273,6 +273,7 @@ function mailDebugEnabled() {
 function logMail(message, details = {}) {
   if (!mailDebugEnabled()) return;
   const safeDetails = { ...details };
+  if (safeDetails.apiKey) safeDetails.apiKey = '[hidden]';
   if (safeDetails.smtpPass) safeDetails.smtpPass = '[hidden]';
   console.log(`[MAIL] ${message}`, Object.keys(safeDetails).length ? safeDetails : '');
 }
@@ -281,32 +282,39 @@ function normalizeEmailAddress(value) {
   return String(value || '').trim().toLowerCase();
 }
 
-function getTransporter() {
+function getMailFrom() {
+  return process.env.RESEND_FROM || process.env.MAIL_FROM;
+}
+
+function getResendClient() {
   if (!mailIsEnabled()) {
     logMail('Versand deaktiviert. MAIL_ENABLED ist nicht true.');
     return null;
   }
 
-  const required = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'MAIL_FROM'];
-  const missing = required.filter(key => !process.env[key]);
-  if (missing.length > 0) {
-    console.warn(`[MAIL] E-Mail Versand ist aktiviert, aber diese Variablen fehlen: ${missing.join(', ')}`);
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('[MAIL] RESEND_API_KEY fehlt. Resend-Mailversand ist nicht verfügbar.');
     return null;
   }
 
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true',
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    }
+  if (!getMailFrom()) {
+    console.warn('[MAIL] RESEND_FROM oder MAIL_FROM fehlt. Absender ist nicht gesetzt.');
+    return null;
+  }
+
+  return new Resend(process.env.RESEND_API_KEY);
+}
+
+function withTimeout(promise, timeoutMs, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timeout nach ${timeoutMs}ms`)), timeoutMs);
   });
+
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 async function sendMail({ to, subject, text, html, replyTo, type = 'mail' }) {
-  const transporter = getTransporter();
   const recipient = normalizeEmailAddress(to);
 
   if (!recipient) {
@@ -319,35 +327,60 @@ async function sendMail({ to, subject, text, html, replyTo, type = 'mail' }) {
     return false;
   }
 
-  if (!transporter) {
-    console.warn(`[MAIL] ${type}: kein Transporter verfügbar. Mail an ${recipient} wurde nicht gesendet.`);
+  const resend = getResendClient();
+  if (!resend) {
+    console.warn(`[MAIL] ${type}: Resend nicht verfügbar. Mail an ${recipient} wurde nicht gesendet.`);
     return false;
   }
 
-  try {
-    const info = await transporter.sendMail({
-      from: process.env.MAIL_FROM,
-      to: recipient,
-      replyTo: replyTo || undefined,
-      subject,
-      text,
-      html
-    });
+  const maxAttempts = Number(process.env.MAIL_RETRY_ATTEMPTS || 3);
+  const timeoutMs = Number(process.env.MAIL_TIMEOUT_MS || 30000);
+  const from = getMailFrom();
 
-    console.log(`[MAIL] ${type}: gesendet`, {
-      to: recipient,
-      subject,
-      messageId: info.messageId,
-      accepted: info.accepted,
-      rejected: info.rejected,
-      response: info.response
-    });
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const result = await withTimeout(
+        resend.emails.send({
+          from,
+          to: [recipient],
+          subject,
+          text,
+          html,
+          reply_to: replyTo || undefined,
+          headers: {
+            'X-Entity-Ref-ID': crypto.randomUUID()
+          }
+        }),
+        timeoutMs,
+        `${type} an ${recipient}`
+      );
 
-    return true;
-  } catch (error) {
-    console.error(`[MAIL] ${type}: konnte nicht gesendet werden an ${recipient}:`, error.message);
-    return false;
+      if (result.error) {
+        throw new Error(result.error.message || JSON.stringify(result.error));
+      }
+
+      console.log(`[MAIL] ${type}: gesendet via Resend`, {
+        to: recipient,
+        subject,
+        attempt,
+        id: result.data?.id || null
+      });
+
+      return true;
+    } catch (error) {
+      const isLastAttempt = attempt >= maxAttempts;
+      console.error(`[MAIL] ${type}: Versuch ${attempt}/${maxAttempts} fehlgeschlagen an ${recipient}:`, error.message);
+
+      if (isLastAttempt) {
+        console.error(`[MAIL] ${type}: endgültig nicht gesendet an ${recipient}.`);
+        return false;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
   }
+
+  return false;
 }
 
 function escapeHtml(value) {
@@ -852,5 +885,5 @@ app.post('/admin/delete/:id', requireLogin, verifyCsrf, (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server läuft auf Port ${PORT}`);
   console.log(`Admin-Dashboard: /admin`);
-  console.log(`[MAIL] MAIL_ENABLED=${process.env.MAIL_ENABLED || 'nicht gesetzt'}, SMTP_USER=${process.env.SMTP_USER || 'nicht gesetzt'}, ADMIN_EMAIL=${process.env.ADMIN_EMAIL || 'nicht gesetzt'}`);
+  console.log(`[MAIL] MAIL_ENABLED=${process.env.MAIL_ENABLED || 'nicht gesetzt'}, PROVIDER=Resend, RESEND_API_KEY=${process.env.RESEND_API_KEY ? 'gesetzt' : 'nicht gesetzt'}, MAIL_FROM=${getMailFrom() || 'nicht gesetzt'}, ADMIN_EMAIL=${process.env.ADMIN_EMAIL || 'nicht gesetzt'}`);
 });

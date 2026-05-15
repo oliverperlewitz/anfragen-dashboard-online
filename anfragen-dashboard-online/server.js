@@ -50,6 +50,17 @@ function writeAnfragen(anfragen) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(anfragen, null, 2), 'utf8');
 }
 
+function formatBerlinDateTime(date = new Date()) {
+  return date.toLocaleString('de-DE', {
+    timeZone: 'Europe/Berlin',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+}
 
 function readJsonFile(filePath, fallback = []) {
   try {
@@ -72,7 +83,7 @@ function addActivity(req, action, details = {}) {
   log.unshift({
     id: crypto.randomUUID(),
     time: new Date().toISOString(),
-    datum: new Date().toLocaleString('de-DE'),
+    datum: formatBerlinDateTime(),
     action,
     admin: req.session?.username || null,
     ip: getClientIp(req),
@@ -112,6 +123,42 @@ function createBackup(reason = 'manual') {
   } catch (error) {
     console.warn('Backup konnte nicht erstellt werden:', error.message);
   }
+}
+
+function listBackups(limit = 20) {
+  try {
+    if (!fs.existsSync(BACKUP_DIR)) return [];
+    return fs.readdirSync(BACKUP_DIR)
+      .filter(file => file.endsWith('.json'))
+      .map(file => {
+        const fullPath = path.join(BACKUP_DIR, file);
+        const stat = fs.statSync(fullPath);
+        return {
+          file,
+          size: stat.size,
+          sizeKb: Math.max(1, Math.round(stat.size / 1024)),
+          modified: stat.mtime,
+          modifiedLabel: formatBerlinDateTime(stat.mtime)
+        };
+      })
+      .sort((a, b) => b.modified - a.modified)
+      .slice(0, limit);
+  } catch (error) {
+    console.warn('Backups konnten nicht gelesen werden:', error.message);
+    return [];
+  }
+}
+
+function getSafeBackupPath(filename) {
+  const safeName = path.basename(String(filename || ''));
+  if (!safeName.endsWith('.json')) return null;
+  if (!safeName.startsWith('anfragen-')) return null;
+
+  const fullPath = path.join(BACKUP_DIR, safeName);
+  if (!fullPath.startsWith(BACKUP_DIR)) return null;
+  if (!fs.existsSync(fullPath)) return null;
+
+  return { safeName, fullPath };
 }
 
 function createCsrfToken(req) {
@@ -641,7 +688,7 @@ app.post('/anfrage', formLimiter, async (req, res) => {
     kontaktart: kontaktart || '',
     details: details || '',
     status: 'Neu',
-    datum: new Date().toLocaleString('de-DE')
+    datum: formatBerlinDateTime()
   };
 
   createBackup('before-create');
@@ -700,8 +747,24 @@ app.get('/admin', requireLogin, (req, res) => {
     suche: req.query.suche || '',
     username: req.session.username || 'Admin',
     csrfToken: createCsrfToken(req),
-    activityLog: readActivityLog(10)
+    activityLog: readActivityLog(10),
+    backups: listBackups(20)
   });
+});
+
+app.get('/admin/backups/:filename', requireLogin, (req, res) => {
+  const backup = getSafeBackupPath(req.params.filename);
+  if (!backup) return res.status(404).send('Backup wurde nicht gefunden.');
+
+  addActivity(req, 'backup_downloaded', { file: backup.safeName });
+  res.download(backup.fullPath, backup.safeName);
+});
+
+app.get('/admin/activity-log/download', requireLogin, (req, res) => {
+  if (!fs.existsSync(ACTIVITY_LOG_FILE)) return res.status(404).send('Aktivitätsprotokoll wurde nicht gefunden.');
+
+  addActivity(req, 'activity_log_downloaded');
+  res.download(ACTIVITY_LOG_FILE, 'activity-log.json');
 });
 
 app.post('/admin/status/:id', requireLogin, verifyCsrf, async (req, res) => {

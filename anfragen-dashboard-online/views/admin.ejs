@@ -204,6 +204,40 @@
     <% } %>
 
 
+    <section class="admin-panel backup-panel">
+      <div class="department-section-head compact-head">
+        <div>
+          <p class="admin-kicker">Datensicherung</p>
+          <h2>Backups</h2>
+          <p>Hier kannst du gespeicherte Sicherungen deiner Anfragen direkt herunterladen.</p>
+        </div>
+        <a class="button secondary" href="/admin/activity-log/download">Aktivitätsprotokoll herunterladen</a>
+      </div>
+
+      <% if (backups && backups.length) { %>
+        <div class="backup-list">
+          <% backups.forEach(backup => { %>
+            <div class="backup-item">
+              <div class="backup-file-info">
+                <span class="backup-icon">💾</span>
+                <div>
+                  <strong><%= backup.file %></strong>
+                  <span><%= backup.modifiedLabel %> · <%= backup.sizeKb %> KB</span>
+                </div>
+              </div>
+              <a class="button" href="/admin/backups/<%= encodeURIComponent(backup.file) %>">Download</a>
+            </div>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <div class="backup-empty">
+          <strong>Noch keine Backups vorhanden.</strong>
+          <p>Backups entstehen automatisch, wenn Anfragen gespeichert, Status geändert oder Anfragen gelöscht werden.</p>
+        </div>
+      <% } %>
+    </section>
+
+
     <% if (activityLog && activityLog.length) { %>
       <section class="admin-panel activity-panel">
         <div class="department-section-head compact-head">

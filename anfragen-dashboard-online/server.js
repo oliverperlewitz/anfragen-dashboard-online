@@ -207,7 +207,7 @@ function normalizeBudget(value) {
 function validateRequestForm(body) {
   const data = {
     name: cleanText(body.name, 80),
-    email: cleanText(body.email, 120),
+    email: normalizeEmailAddress(body.email),
     telefon: cleanText(body.telefon, 35),
     adresse: cleanText(body.adresse, 160),
     leistung: cleanText(body.leistung, 60),
@@ -226,6 +226,7 @@ function validateRequestForm(body) {
   if (!data.name) errors.push('Name fehlt.');
   if (!data.telefon) errors.push('Telefon fehlt.');
   if (data.telefon && !isValidPhone(data.telefon)) errors.push('Telefonnummer ist ungültig.');
+  if (!data.email) errors.push('E-Mail-Adresse fehlt.');
   if (data.email && !isValidEmail(data.email)) errors.push('E-Mail-Adresse ist ungültig.');
   if (!data.leistung || data.leistung === 'Gewünschte Leistung *') errors.push('Gewünschte Leistung fehlt.');
   if (!data.details) errors.push('Details zum Auftrag fehlen.');
@@ -265,13 +266,31 @@ function mailIsEnabled() {
   return String(process.env.MAIL_ENABLED || '').toLowerCase() === 'true';
 }
 
+function mailDebugEnabled() {
+  return String(process.env.MAIL_DEBUG || 'true').toLowerCase() === 'true';
+}
+
+function logMail(message, details = {}) {
+  if (!mailDebugEnabled()) return;
+  const safeDetails = { ...details };
+  if (safeDetails.smtpPass) safeDetails.smtpPass = '[hidden]';
+  console.log(`[MAIL] ${message}`, Object.keys(safeDetails).length ? safeDetails : '');
+}
+
+function normalizeEmailAddress(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
 function getTransporter() {
-  if (!mailIsEnabled()) return null;
+  if (!mailIsEnabled()) {
+    logMail('Versand deaktiviert. MAIL_ENABLED ist nicht true.');
+    return null;
+  }
 
   const required = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'MAIL_FROM'];
   const missing = required.filter(key => !process.env[key]);
   if (missing.length > 0) {
-    console.warn(`E-Mail Versand ist aktiviert, aber diese Variablen fehlen: ${missing.join(', ')}`);
+    console.warn(`[MAIL] E-Mail Versand ist aktiviert, aber diese Variablen fehlen: ${missing.join(', ')}`);
     return null;
   }
 
@@ -286,21 +305,48 @@ function getTransporter() {
   });
 }
 
-async function sendMail({ to, subject, text, html }) {
+async function sendMail({ to, subject, text, html, replyTo, type = 'mail' }) {
   const transporter = getTransporter();
-  if (!transporter || !to) return;
+  const recipient = normalizeEmailAddress(to);
+
+  if (!recipient) {
+    logMail(`${type}: übersprungen, weil kein Empfänger vorhanden ist.`, { subject });
+    return false;
+  }
+
+  if (!isValidEmail(recipient)) {
+    console.warn(`[MAIL] ${type}: ungültige Empfängeradresse: ${recipient}`);
+    return false;
+  }
+
+  if (!transporter) {
+    console.warn(`[MAIL] ${type}: kein Transporter verfügbar. Mail an ${recipient} wurde nicht gesendet.`);
+    return false;
+  }
 
   try {
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       from: process.env.MAIL_FROM,
-      to,
+      to: recipient,
+      replyTo: replyTo || undefined,
       subject,
       text,
       html
     });
-    console.log(`E-Mail gesendet an ${to}: ${subject}`);
+
+    console.log(`[MAIL] ${type}: gesendet`, {
+      to: recipient,
+      subject,
+      messageId: info.messageId,
+      accepted: info.accepted,
+      rejected: info.rejected,
+      response: info.response
+    });
+
+    return true;
   } catch (error) {
-    console.error('E-Mail konnte nicht gesendet werden:', error.message);
+    console.error(`[MAIL] ${type}: konnte nicht gesendet werden an ${recipient}:`, error.message);
+    return false;
   }
 }
 
@@ -321,7 +367,10 @@ function statusText(status) {
 }
 
 async function sendCustomerConfirmation(anfrage) {
-  if (!anfrage.email) return;
+  if (!anfrage.email) {
+    logMail('Kunden-Bestätigung übersprungen: Anfrage hat keine E-Mail-Adresse.', { requestId: anfrage.id, name: anfrage.name });
+    return false;
+  }
 
   const subject = 'Bestätigung deiner Anfrage bei GrünWerk Gartenbau';
   const text = `Hallo ${anfrage.name},\n\n` +
@@ -349,7 +398,7 @@ async function sendCustomerConfirmation(anfrage) {
     </div>
   `;
 
-  await sendMail({ to: anfrage.email, subject, text, html });
+  await sendMail({ to: anfrage.email, subject, text, html, type: 'Kunden-Bestätigung' });
 }
 
 async function sendAdminNotification(anfrage) {
@@ -365,11 +414,18 @@ async function sendAdminNotification(anfrage) {
     `Budget: ${anfrage.budget || '-'}\n\n` +
     `Details:\n${anfrage.details || '-'}\n`;
 
-  await sendMail({ to: process.env.ADMIN_EMAIL, subject, text });
+  await sendMail({ to: process.env.ADMIN_EMAIL, subject, text, replyTo: anfrage.email || undefined, type: 'Admin-Benachrichtigung' });
 }
 
 async function sendStatusEmail(anfrage, oldStatus, newStatus) {
-  if (!anfrage.email || oldStatus === newStatus) return;
+  if (!anfrage.email) {
+    logMail('Status-Mail übersprungen: Anfrage hat keine E-Mail-Adresse.', { requestId: anfrage.id, name: anfrage.name });
+    return false;
+  }
+  if (oldStatus === newStatus) {
+    logMail('Status-Mail übersprungen: Status wurde nicht geändert.', { requestId: anfrage.id, status: newStatus });
+    return false;
+  }
 
   const subject = `Update zu deiner Anfrage: ${newStatus}`;
   const text = `Hallo ${anfrage.name},\n\n` +
@@ -393,7 +449,7 @@ async function sendStatusEmail(anfrage, oldStatus, newStatus) {
     </div>
   `;
 
-  await sendMail({ to: anfrage.email, subject, text, html });
+  await sendMail({ to: anfrage.email, subject, text, html, type: 'Status-Mail' });
 }
 
 function requireLogin(req, res, next) {
@@ -796,4 +852,5 @@ app.post('/admin/delete/:id', requireLogin, verifyCsrf, (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server läuft auf Port ${PORT}`);
   console.log(`Admin-Dashboard: /admin`);
+  console.log(`[MAIL] MAIL_ENABLED=${process.env.MAIL_ENABLED || 'nicht gesetzt'}, SMTP_USER=${process.env.SMTP_USER || 'nicht gesetzt'}, ADMIN_EMAIL=${process.env.ADMIN_EMAIL || 'nicht gesetzt'}`);
 });

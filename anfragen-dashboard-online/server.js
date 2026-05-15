@@ -6,11 +6,29 @@ const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'anfragen.json');
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Zu viele Login-Versuche. Bitte warte 15 Minuten und versuche es erneut.'
+});
+
+const formLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Zu viele Anfragen in kurzer Zeit. Bitte warte kurz und versuche es erneut.'
+});
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, '[]', 'utf8');
@@ -289,6 +307,42 @@ function maintenancePage() {
   `;
 }
 
+
+app.set('trust proxy', 1);
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https://images.unsplash.com"],
+      fontSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      upgradeInsecureRequests: []
+    }
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: false
+  },
+  frameguard: { action: 'deny' },
+  noSniff: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  crossOriginResourcePolicy: false
+}));
+
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self)');
+  next();
+});
+
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
@@ -320,6 +374,8 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
     maxAge: 1000 * 60 * 60 * 8
   }
 }));
@@ -328,7 +384,7 @@ app.get('/', (req, res) => {
   res.render('kontakt', { success: req.query.success === '1' });
 });
 
-app.post('/anfrage', async (req, res) => {
+app.post('/anfrage', formLimiter, async (req, res) => {
   const {
     name,
     email,
@@ -426,7 +482,7 @@ app.get('/login', (req, res) => {
   res.render('login', { error: null });
 });
 
-app.post('/login', (req, res) => {
+app.post('/login', loginLimiter, (req, res) => {
   const { username, password } = req.body;
 
   if (isAdminLoginCorrect(username, password)) {

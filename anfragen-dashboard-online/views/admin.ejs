@@ -50,6 +50,10 @@
       </span>
     </a>
     <div class="admin-header-actions">
+      <div class="admin-user-chip" title="Eingeloggt als <%= username || 'Admin' %>">
+        <span class="admin-user-dot">👋</span>
+        <span>Hallo <strong><%= username || 'Admin' %></strong></span>
+      </div>
       <a class="button secondary" href="/" target="_blank">Website ansehen</a>
       <form action="/logout" method="POST"><button class="danger" type="submit">Ausloggen</button></form>
     </div>

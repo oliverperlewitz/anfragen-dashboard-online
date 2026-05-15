@@ -55,7 +55,7 @@
         <span>Hallo <strong><%= username || 'Admin' %></strong></span>
       </div>
       <a class="button secondary" href="/" target="_blank">Website ansehen</a>
-      <form action="/logout" method="POST"><button class="danger" type="submit">Ausloggen</button></form>
+      <form action="/logout" method="POST"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="danger" type="submit">Ausloggen</button></form>
     </div>
   </header>
 
@@ -181,6 +181,7 @@
 
                     <div class="admin-card-actions">
                       <form action="/admin/status/<%= a.id %>" method="POST" class="status-form clean-status-form">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                         <select name="status" aria-label="Status ändern">
                           <option <%= a.status === 'Neu' ? 'selected' : '' %>>Neu</option>
                           <option <%= a.status === 'In Bearbeitung' ? 'selected' : '' %>>In Bearbeitung</option>
@@ -189,6 +190,7 @@
                         <button type="submit">Status ändern</button>
                       </form>
                       <form action="/admin/delete/<%= a.id %>" method="POST" onsubmit="return confirm('Diese Anfrage wirklich löschen?');">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                         <button class="danger ghost-danger" type="submit">Löschen</button>
                       </form>
                     </div>
@@ -200,6 +202,33 @@
         <% }) %>
       </section>
     <% } %>
+
+
+    <% if (activityLog && activityLog.length) { %>
+      <section class="admin-panel activity-panel">
+        <div class="department-section-head compact-head">
+          <div>
+            <p class="admin-kicker">Sicherheit</p>
+            <h2>Letzte Aktivitäten</h2>
+            <p>Login, Statusänderungen, Löschungen und Sicherheitsereignisse.</p>
+          </div>
+        </div>
+        <div class="activity-list">
+          <% activityLog.forEach(log => { %>
+            <div class="activity-item">
+              <div>
+                <strong><%= log.action %></strong>
+                <span><%= log.datum %> · <%= log.admin || 'System/Besucher' %></span>
+              </div>
+              <% if (log.details && Object.keys(log.details).length) { %>
+                <small><%= Object.entries(log.details).map(([key, value]) => key + ': ' + value).join(' · ') %></small>
+              <% } %>
+            </div>
+          <% }) %>
+        </div>
+      </section>
+    <% } %>
+
   </main>
 </body>
 </html>

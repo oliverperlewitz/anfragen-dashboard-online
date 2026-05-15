@@ -730,3 +730,48 @@ pre { white-space: pre-wrap; margin: 0; font-family: inherit; color: var(--muted
   border-radius: 50%;
   background: #e1eadb;
 }
+
+.activity-panel {
+  margin-top: 28px;
+}
+
+.compact-head {
+  margin-bottom: 18px;
+}
+
+.activity-list {
+  display: grid;
+  gap: 12px;
+}
+
+.activity-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 16px 18px;
+  border-radius: 20px;
+  background: #f8f7f2;
+  border: 1px solid #d9dfd2;
+}
+
+.activity-item strong {
+  display: block;
+  color: #193222;
+  font-size: 15px;
+}
+
+.activity-item span,
+.activity-item small {
+  display: block;
+  margin-top: 4px;
+  color: #667466;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .activity-item {
+    flex-direction: column;
+  }
+}

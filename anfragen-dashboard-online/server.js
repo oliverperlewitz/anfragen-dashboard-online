@@ -8,11 +8,14 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'anfragen.json');
+const ACTIVITY_LOG_FILE = path.join(DATA_DIR, 'activity-log.json');
+const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -31,7 +34,9 @@ const formLimiter = rateLimit({
 });
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
 if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, '[]', 'utf8');
+if (!fs.existsSync(ACTIVITY_LOG_FILE)) fs.writeFileSync(ACTIVITY_LOG_FILE, '[]', 'utf8');
 
 function readAnfragen() {
   try {
@@ -43,6 +48,144 @@ function readAnfragen() {
 
 function writeAnfragen(anfragen) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(anfragen, null, 2), 'utf8');
+}
+
+
+function readJsonFile(filePath, fallback = []) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function writeJsonFile(filePath, data) {
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+}
+
+function getClientIp(req) {
+  return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+}
+
+function addActivity(req, action, details = {}) {
+  const log = readJsonFile(ACTIVITY_LOG_FILE, []);
+  log.unshift({
+    id: crypto.randomUUID(),
+    time: new Date().toISOString(),
+    datum: new Date().toLocaleString('de-DE'),
+    action,
+    admin: req.session?.username || null,
+    ip: getClientIp(req),
+    details
+  });
+
+  writeJsonFile(ACTIVITY_LOG_FILE, log.slice(0, 500));
+}
+
+function readActivityLog(limit = 12) {
+  return readJsonFile(ACTIVITY_LOG_FILE, []).slice(0, limit);
+}
+
+function pruneBackups() {
+  const maxBackups = Number(process.env.MAX_BACKUPS || 50);
+  const backups = fs.readdirSync(BACKUP_DIR)
+    .filter(file => file.endsWith('.json'))
+    .map(file => ({ file, fullPath: path.join(BACKUP_DIR, file), time: fs.statSync(path.join(BACKUP_DIR, file)).mtimeMs }))
+    .sort((a, b) => b.time - a.time);
+
+  backups.slice(maxBackups).forEach(item => {
+    try { fs.unlinkSync(item.fullPath); } catch (error) { console.warn('Altes Backup konnte nicht gelöscht werden:', error.message); }
+  });
+}
+
+function createBackup(reason = 'manual') {
+  try {
+    if (!fs.existsSync(DATA_FILE)) return;
+    const current = fs.readFileSync(DATA_FILE, 'utf8');
+    if (!current || current.trim() === '[]') return;
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const safeReason = String(reason).replace(/[^a-z0-9-_]/gi, '').slice(0, 40) || 'backup';
+    const backupFile = path.join(BACKUP_DIR, `anfragen-${timestamp}-${safeReason}.json`);
+    fs.writeFileSync(backupFile, current, 'utf8');
+    pruneBackups();
+  } catch (error) {
+    console.warn('Backup konnte nicht erstellt werden:', error.message);
+  }
+}
+
+function createCsrfToken(req) {
+  const token = crypto.randomBytes(32).toString('hex');
+  req.session.csrfToken = token;
+  return token;
+}
+
+function verifyCsrf(req, res, next) {
+  const tokenFromForm = req.body?._csrf;
+  const tokenFromSession = req.session?.csrfToken;
+
+  if (!tokenFromForm || !tokenFromSession || tokenFromForm !== tokenFromSession) {
+    addActivity(req, 'csrf_blocked', { path: req.path });
+    return res.status(403).send('Sicherheitsprüfung fehlgeschlagen. Bitte lade das Dashboard neu und versuche es erneut.');
+  }
+
+  next();
+}
+
+function cleanText(value, maxLength = 500) {
+  return String(value || '').trim().replace(/\s+/g, ' ').slice(0, maxLength);
+}
+
+function cleanMultiline(value, maxLength = 3000) {
+  return String(value || '').trim().replace(/\r\n/g, '\n').slice(0, maxLength);
+}
+
+function isValidEmail(value) {
+  if (!value) return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 120;
+}
+
+function isValidPhone(value) {
+  return /^[0-9+()\-\s/]{5,35}$/.test(value || '');
+}
+
+function normalizeBudget(value) {
+  const raw = String(value || '').trim().replace('€', '').trim();
+  if (!raw) return '';
+  const normalized = raw.replace(',', '.');
+  if (!/^\d{1,7}(\.\d{1,2})?$/.test(normalized)) return null;
+  return raw.replace('.', ',');
+}
+
+function validateRequestForm(body) {
+  const data = {
+    name: cleanText(body.name, 80),
+    email: cleanText(body.email, 120),
+    telefon: cleanText(body.telefon, 35),
+    adresse: cleanText(body.adresse, 160),
+    leistung: cleanText(body.leistung, 60),
+    auftragsart: cleanText(body.auftragsart, 80),
+    groesse: cleanText(body.groesse, 80),
+    zeitraum: cleanText(body.zeitraum, 80),
+    details: cleanMultiline(body.details, 3000),
+    budget: normalizeBudget(body.budget),
+    besichtigung: cleanText(body.besichtigung, 80),
+    erreichbarkeit: cleanText(body.erreichbarkeit, 80),
+    kontaktart: cleanText(body.kontaktart, 80),
+    datenschutz: body.datenschutz
+  };
+
+  const errors = [];
+  if (!data.name) errors.push('Name fehlt.');
+  if (!data.telefon) errors.push('Telefon fehlt.');
+  if (data.telefon && !isValidPhone(data.telefon)) errors.push('Telefonnummer ist ungültig.');
+  if (data.email && !isValidEmail(data.email)) errors.push('E-Mail-Adresse ist ungültig.');
+  if (!data.leistung || data.leistung === 'Gewünschte Leistung *') errors.push('Gewünschte Leistung fehlt.');
+  if (!data.details) errors.push('Details zum Auftrag fehlen.');
+  if (data.budget === null) errors.push('Budget muss eine Zahl sein, zum Beispiel 500 oder 1200,50.');
+  if (!data.datenschutz) errors.push('Datenschutz-Bestätigung fehlt.');
+
+  return { data, errors };
 }
 
 
@@ -211,16 +354,47 @@ function requireLogin(req, res, next) {
   res.redirect('/login');
 }
 
-function isAdminLoginCorrect(username, password) {
-  const adminsText = process.env.ADMINS || '';
-  if (adminsText.trim()) {
-    return adminsText.split(',').some(pair => {
-      const [adminUsername, adminPassword] = pair.split(':');
-      return adminUsername === username && adminPassword === password;
-    });
+function splitAdminPair(pair) {
+  const index = pair.indexOf(':');
+  if (index === -1) return null;
+  return {
+    username: pair.slice(0, index),
+    passwordOrHash: pair.slice(index + 1)
+  };
+}
+
+async function passwordMatches(password, passwordOrHash) {
+  if (!passwordOrHash) return false;
+
+  const looksHashed = passwordOrHash.startsWith('$2a$') || passwordOrHash.startsWith('$2b$') || passwordOrHash.startsWith('$2y$');
+  if (looksHashed) return bcrypt.compare(password, passwordOrHash);
+
+  // Fallback für ältere Konfigurationen. Besser: ADMIN_PASSWORD_HASH oder ADMINS_HASHED benutzen.
+  return password === passwordOrHash;
+}
+
+async function isAdminLoginCorrect(username, password) {
+  const adminsHashedText = process.env.ADMINS_HASHED || '';
+  if (adminsHashedText.trim()) {
+    for (const pair of adminsHashedText.split(',')) {
+      const admin = splitAdminPair(pair.trim());
+      if (admin && admin.username === username && await passwordMatches(password, admin.passwordOrHash)) return true;
+    }
   }
 
-  return username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD;
+  if (process.env.ADMIN_USERNAME === username && process.env.ADMIN_PASSWORD_HASH) {
+    return passwordMatches(password, process.env.ADMIN_PASSWORD_HASH);
+  }
+
+  const adminsText = process.env.ADMINS || '';
+  if (adminsText.trim()) {
+    for (const pair of adminsText.split(',')) {
+      const admin = splitAdminPair(pair.trim());
+      if (admin && admin.username === username && await passwordMatches(password, admin.passwordOrHash)) return true;
+    }
+  }
+
+  return username === process.env.ADMIN_USERNAME && await passwordMatches(password, process.env.ADMIN_PASSWORD);
 }
 
 
@@ -385,6 +559,12 @@ app.get('/', (req, res) => {
 });
 
 app.post('/anfrage', formLimiter, async (req, res) => {
+  const { data, errors } = validateRequestForm(req.body);
+
+  if (errors.length > 0) {
+    return res.status(400).send(`Bitte korrigiere deine Eingaben:<br><br>${errors.map(escapeHtml).join('<br>')}`);
+  }
+
   const {
     name,
     email,
@@ -398,13 +578,8 @@ app.post('/anfrage', formLimiter, async (req, res) => {
     budget,
     besichtigung,
     erreichbarkeit,
-    kontaktart,
-    datenschutz
-  } = req.body;
-
-  if (!name || !telefon || !leistung || !details || !datenschutz) {
-    return res.status(400).send('Bitte fülle alle Pflichtfelder aus und akzeptiere die Datenschutzerklärung.');
-  }
+    kontaktart
+  } = data;
 
   const requestFingerprint = createRequestFingerprint({
     name,
@@ -469,8 +644,10 @@ app.post('/anfrage', formLimiter, async (req, res) => {
     datum: new Date().toLocaleString('de-DE')
   };
 
+  createBackup('before-create');
   anfragen.unshift(neueAnfrage);
   writeAnfragen(anfragen);
+  addActivity(req, 'request_created', { requestId: neueAnfrage.id, name: neueAnfrage.name, leistung: neueAnfrage.kategorie });
 
   await sendCustomerConfirmation(neueAnfrage);
   await sendAdminNotification(neueAnfrage);
@@ -482,19 +659,23 @@ app.get('/login', (req, res) => {
   res.render('login', { error: null });
 });
 
-app.post('/login', loginLimiter, (req, res) => {
-  const { username, password } = req.body;
+app.post('/login', loginLimiter, async (req, res) => {
+  const username = cleanText(req.body.username, 80);
+  const password = String(req.body.password || '');
 
-  if (isAdminLoginCorrect(username, password)) {
+  if (await isAdminLoginCorrect(username, password)) {
     req.session.loggedIn = true;
     req.session.username = username;
+    addActivity(req, 'login_success', { username });
     return res.redirect('/admin');
   }
 
+  addActivity(req, 'login_failed', { username });
   res.render('login', { error: 'Benutzername oder Passwort ist falsch.' });
 });
 
-app.post('/logout', (req, res) => {
+app.post('/logout', requireLogin, verifyCsrf, (req, res) => {
+  addActivity(req, 'logout', { username: req.session.username });
   req.session.destroy(() => {
     res.redirect('/login');
   });
@@ -514,25 +695,38 @@ app.get('/admin', requireLogin, (req, res) => {
       )
     : anfragen;
 
-  res.render('admin', { anfragen: gefiltert, suche: req.query.suche || '', username: req.session.username || 'Admin' });
+  res.render('admin', {
+    anfragen: gefiltert,
+    suche: req.query.suche || '',
+    username: req.session.username || 'Admin',
+    csrfToken: createCsrfToken(req),
+    activityLog: readActivityLog(10)
+  });
 });
 
-app.post('/admin/status/:id', requireLogin, async (req, res) => {
+app.post('/admin/status/:id', requireLogin, verifyCsrf, async (req, res) => {
   const anfragen = readAnfragen();
   const anfrage = anfragen.find(a => a.id === req.params.id);
   if (anfrage) {
     const oldStatus = anfrage.status || 'Neu';
-    const newStatus = req.body.status;
+    const allowedStatuses = ['Neu', 'In Bearbeitung', 'Erledigt'];
+    const newStatus = allowedStatuses.includes(req.body.status) ? req.body.status : oldStatus;
     anfrage.status = newStatus;
+    createBackup('before-status');
     writeAnfragen(anfragen);
+    addActivity(req, 'status_changed', { requestId: anfrage.id, name: anfrage.name, oldStatus, newStatus });
     await sendStatusEmail(anfrage, oldStatus, newStatus);
   }
   res.redirect('/admin');
 });
 
-app.post('/admin/delete/:id', requireLogin, (req, res) => {
-  const anfragen = readAnfragen().filter(a => a.id !== req.params.id);
+app.post('/admin/delete/:id', requireLogin, verifyCsrf, (req, res) => {
+  const before = readAnfragen();
+  const deleted = before.find(a => a.id === req.params.id);
+  const anfragen = before.filter(a => a.id !== req.params.id);
+  createBackup('before-delete');
   writeAnfragen(anfragen);
+  if (deleted) addActivity(req, 'request_deleted', { requestId: deleted.id, name: deleted.name, leistung: deleted.kategorie });
   res.redirect('/admin');
 });
 

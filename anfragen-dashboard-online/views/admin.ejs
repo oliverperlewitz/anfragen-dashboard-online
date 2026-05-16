@@ -39,6 +39,9 @@
     const total = anfragen.length;
     const countStatus = (name) => anfragen.filter(a => (a.status || 'Neu') === name).length;
     const grouped = departments.map(dep => ({ ...dep, items: anfragen.filter(a => getDepartment(a) === dep.name) }));
+    const asArray = (value) => Array.isArray(value) ? value : [];
+    const photoTitle = (photo) => [photo.originalName || 'Foto', photo.uploadedAtLabel || '', photo.uploadedBy ? ('von ' + photo.uploadedBy) : ''].filter(Boolean).join(' · ');
+
   %>
 
   <header class="admin-shell-header">
@@ -129,7 +132,7 @@
                   const formattedBudget = budgetValue && budgetValue !== '-' ? (String(budgetValue).includes('€') ? budgetValue : budgetValue + ' €') : 'Nicht angegeben';
                   const currentStatusKey = statusKey(a.status);
                 %>
-                  <article class="admin-request-card <%= currentStatusKey %>">
+                  <article id="request-<%= a.id %>" class="admin-request-card <%= currentStatusKey %>">
                     <div class="admin-request-top">
                       <div>
                         <span class="status-pill status-pill-<%= currentStatusKey %>"><%= a.status || 'Neu' %></span>
@@ -181,6 +184,121 @@
                       <summary>Details zum Auftrag anzeigen</summary>
                       <p><%= detailsText || '-' %></p>
                     </details>
+
+                    <div class="evidence-block">
+                      <h4>Fotos & Nachweise</h4>
+
+                      <% const customerPhotos = asArray(a.customerPhotos); %>
+                      <% const beforePhotos = asArray(a.beforePhotos); %>
+                      <% const afterPhotos = asArray(a.afterPhotos); %>
+
+                      <div class="evidence-section">
+                        <div class="evidence-title"><span>📩 Kundenfotos</span><small><%= customerPhotos.length %> Datei<%= customerPhotos.length === 1 ? '' : 'en' %></small></div>
+                        <% if (customerPhotos.length) { %>
+                          <div class="photo-grid">
+                            <% customerPhotos.forEach(photo => { %>
+                              <figure class="photo-card">
+                                <a href="<%= photo.dataUrl %>" target="_blank" rel="noopener"><img src="<%= photo.dataUrl %>" alt="<%= photo.originalName || 'Kundenfoto' %>"></a>
+                                <figcaption><%= photoTitle(photo) %></figcaption>
+                                <% if (permissions && permissions.canDeleteRequests) { %>
+                                  <form action="/admin/photos/<%= a.id %>/customer/<%= photo.id %>/delete" method="POST" onsubmit="return confirm('Dieses Kundenfoto wirklich löschen?');">
+                                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                                    <button class="danger ghost-danger small-button" type="submit">Foto löschen</button>
+                                  </form>
+                                <% } %>
+                              </figure>
+                            <% }) %>
+                          </div>
+                        <% } else { %>
+                          <p class="evidence-empty">Der Kunde hat keine Fotos hochgeladen.</p>
+                        <% } %>
+                      </div>
+
+                      <div class="evidence-two-col">
+                        <div class="evidence-section">
+                          <div class="evidence-title"><span>📷 Vorher-Fotos</span><small><%= beforePhotos.length %> Datei<%= beforePhotos.length === 1 ? '' : 'en' %></small></div>
+                          <% if (beforePhotos.length) { %>
+                            <div class="photo-grid">
+                              <% beforePhotos.forEach(photo => { %>
+                                <figure class="photo-card">
+                                  <a href="<%= photo.dataUrl %>" target="_blank" rel="noopener"><img src="<%= photo.dataUrl %>" alt="Vorher-Foto"></a>
+                                  <figcaption><%= photoTitle(photo) %></figcaption>
+                                  <% if (permissions && permissions.canDeleteRequests) { %>
+                                    <form action="/admin/photos/<%= a.id %>/before/<%= photo.id %>/delete" method="POST" onsubmit="return confirm('Dieses Vorher-Foto wirklich löschen?');">
+                                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                                      <button class="danger ghost-danger small-button" type="submit">Foto löschen</button>
+                                    </form>
+                                  <% } %>
+                                </figure>
+                              <% }) %>
+                            </div>
+                          <% } else { %>
+                            <p class="evidence-empty">Noch keine Vorher-Fotos.</p>
+                          <% } %>
+                          <% if (permissions && permissions.canUploadPhotos) { %>
+                            <form class="photo-upload-form" action="/admin/photos/<%= a.id %>/before" method="POST" enctype="multipart/form-data">
+                              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                              <input name="workPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+                              <button type="submit">Vorher-Fotos hochladen</button>
+                            </form>
+                          <% } %>
+                        </div>
+
+                        <div class="evidence-section">
+                          <div class="evidence-title"><span>✅ Nachher-Fotos</span><small><%= afterPhotos.length %> Datei<%= afterPhotos.length === 1 ? '' : 'en' %></small></div>
+                          <% if (afterPhotos.length) { %>
+                            <div class="photo-grid">
+                              <% afterPhotos.forEach(photo => { %>
+                                <figure class="photo-card">
+                                  <a href="<%= photo.dataUrl %>" target="_blank" rel="noopener"><img src="<%= photo.dataUrl %>" alt="Nachher-Foto"></a>
+                                  <figcaption><%= photoTitle(photo) %></figcaption>
+                                  <% if (permissions && permissions.canDeleteRequests) { %>
+                                    <form action="/admin/photos/<%= a.id %>/after/<%= photo.id %>/delete" method="POST" onsubmit="return confirm('Dieses Nachher-Foto wirklich löschen?');">
+                                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                                      <button class="danger ghost-danger small-button" type="submit">Foto löschen</button>
+                                    </form>
+                                  <% } %>
+                                </figure>
+                              <% }) %>
+                            </div>
+                          <% } else { %>
+                            <p class="evidence-empty">Noch keine Nachher-Fotos.</p>
+                          <% } %>
+                          <% if (permissions && permissions.canUploadPhotos) { %>
+                            <form class="photo-upload-form" action="/admin/photos/<%= a.id %>/after" method="POST" enctype="multipart/form-data">
+                              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                              <input name="workPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+                              <button type="submit">Nachher-Fotos hochladen</button>
+                            </form>
+                          <% } %>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="internal-notes-block">
+                      <h4>Interne Notizen</h4>
+                      <p class="internal-note-hint">Nur im Dashboard sichtbar. Kunden sehen diese Notizen nicht.</p>
+                      <% const notes = asArray(a.internalNotes); %>
+                      <% if (notes.length) { %>
+                        <div class="notes-list">
+                          <% notes.forEach(note => { %>
+                            <div class="note-item">
+                              <p><%= note.text %></p>
+                              <span><%= note.createdAtLabel || '' %> · <%= note.createdBy || 'Admin' %></span>
+                            </div>
+                          <% }) %>
+                        </div>
+                      <% } else { %>
+                        <p class="evidence-empty">Noch keine internen Notizen.</p>
+                      <% } %>
+                      <% if (permissions && permissions.canWriteNotes) { %>
+                        <form class="note-form" action="/admin/note/<%= a.id %>" method="POST">
+                          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                          <textarea name="note" placeholder="Interne Notiz hinzufügen, z. B. Kunde möchte Rückruf am Abend..." required></textarea>
+                          <button type="submit">Notiz speichern</button>
+                        </form>
+                      <% } %>
+                    </div>
 
                     <div class="admin-card-actions">
                       <form action="/admin/status/<%= a.id %>" method="POST" class="status-form clean-status-form">

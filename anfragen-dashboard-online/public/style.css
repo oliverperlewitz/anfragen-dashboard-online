@@ -968,3 +968,178 @@ pre { white-space: pre-wrap; margin: 0; font-family: inherit; color: var(--muted
     grid-template-columns: 1fr;
   }
 }
+
+/* Foto-Uploads und interne Notizen */
+.upload-fieldset .field-help {
+  grid-column: 1 / -1;
+  margin: 0 0 6px;
+  color: #667466;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.upload-fieldset input[type="file"],
+.photo-upload-form input[type="file"] {
+  width: 100%;
+  padding: 14px;
+  border: 1px dashed #b8c3b0;
+  border-radius: 18px;
+  background: #fff;
+  color: #193222;
+}
+
+.evidence-block,
+.internal-notes-block {
+  margin-top: 18px;
+  padding: 18px;
+  border-radius: 24px;
+  background: #f8f7f2;
+  border: 1px solid #e2e6da;
+}
+
+.evidence-block h4,
+.internal-notes-block h4 {
+  margin: 0 0 12px;
+  color: #193222;
+}
+
+.evidence-two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.evidence-section {
+  padding: 14px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(36,77,52,0.08);
+}
+
+.evidence-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.evidence-title span {
+  font-weight: 900;
+  color: #193222;
+}
+
+.evidence-title small,
+.internal-note-hint,
+.evidence-empty {
+  color: #667466;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.photo-card {
+  margin: 0;
+  padding: 8px;
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid rgba(36,77,52,0.08);
+  box-shadow: 0 8px 20px rgba(25,50,34,0.06);
+}
+
+.photo-card img {
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+  display: block;
+  border-radius: 14px;
+  background: #e1eadb;
+}
+
+.photo-card figcaption {
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #667466;
+  word-break: break-word;
+}
+
+.small-button {
+  width: 100%;
+  margin-top: 8px;
+  padding: 7px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.photo-upload-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.photo-upload-form button,
+.note-form button {
+  border: 0;
+  border-radius: 999px;
+  background: #244d34;
+  color: white;
+  padding: 11px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.notes-list {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.note-item {
+  padding: 13px;
+  border-radius: 18px;
+  background: #fff;
+  border-left: 4px solid #244d34;
+}
+
+.note-item p {
+  margin: 0;
+  white-space: pre-wrap;
+  color: #193222;
+  line-height: 1.55;
+}
+
+.note-item span {
+  display: block;
+  margin-top: 8px;
+  color: #667466;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.note-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.note-form textarea {
+  min-height: 95px;
+  border-radius: 18px;
+  border: 1px solid #d9dfd2;
+  padding: 14px;
+  resize: vertical;
+  font: inherit;
+}
+
+@media (max-width: 900px) {
+  .evidence-two-col {
+    grid-template-columns: 1fr;
+  }
+}

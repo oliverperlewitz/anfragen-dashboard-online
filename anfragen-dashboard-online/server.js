@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const bcrypt = require('bcryptjs');
+const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,6 +18,53 @@ const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'anfragen.json');
 const ACTIVITY_LOG_FILE = path.join(DATA_DIR, 'activity-log.json');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
+
+const MAX_PHOTO_SIZE_MB = Number(process.env.MAX_PHOTO_SIZE_MB || 5);
+const MAX_PHOTO_SIZE_BYTES = MAX_PHOTO_SIZE_MB * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: MAX_PHOTO_SIZE_BYTES,
+    files: 12
+  },
+  fileFilter: (req, file, cb) => {
+    if (ALLOWED_IMAGE_TYPES.includes(file.mimetype)) return cb(null, true);
+    cb(new Error('Nur Bilddateien im Format JPG, PNG oder WEBP sind erlaubt.'));
+  }
+});
+
+function handleUpload(middleware) {
+  return (req, res, next) => {
+    middleware(req, res, error => {
+      if (!error) return next();
+      const message = error.code === 'LIMIT_FILE_SIZE'
+        ? `Ein Bild ist zu groß. Maximal erlaubt sind ${MAX_PHOTO_SIZE_MB} MB pro Bild.`
+        : error.message || 'Upload fehlgeschlagen.';
+      return res.status(400).send(`Upload-Fehler: ${escapeHtml(message)}`);
+    });
+  };
+}
+
+function sanitizeFileName(name) {
+  return cleanText(name, 120).replace(/[^a-zA-Z0-9._ -äöüÄÖÜß]/g, '').trim() || 'foto';
+}
+
+function filesToPhotoObjects(files = [], uploadedBy = 'System', type = 'photo') {
+  return files.map(file => ({
+    id: crypto.randomUUID(),
+    type,
+    originalName: sanitizeFileName(file.originalname),
+    mimeType: file.mimetype,
+    size: file.size,
+    sizeKb: Math.max(1, Math.round(file.size / 1024)),
+    uploadedBy: cleanText(uploadedBy, 80) || 'System',
+    uploadedAt: new Date().toISOString(),
+    uploadedAtLabel: formatBerlinDateTime(),
+    dataUrl: `data:${file.mimetype};base64,${file.buffer.toString('base64')}`
+  }));
+}
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -253,7 +301,9 @@ function getPermissions(role) {
     canDeleteRequests: cleanRole === 'owner' || cleanRole === 'admin',
     canDownloadBackups: cleanRole === 'owner' || cleanRole === 'admin',
     canViewActivity: cleanRole === 'owner',
-    canChangeStatus: ['owner', 'admin', 'mitarbeiter'].includes(cleanRole)
+    canChangeStatus: ['owner', 'admin', 'mitarbeiter'].includes(cleanRole),
+    canWriteNotes: ['owner', 'admin', 'mitarbeiter'].includes(cleanRole),
+    canUploadPhotos: ['owner', 'admin', 'mitarbeiter'].includes(cleanRole)
   };
 }
 
@@ -523,7 +573,8 @@ function createRequestFingerprint(data) {
     data.budget,
     data.besichtigung,
     data.erreichbarkeit,
-    data.kontaktart
+    data.kontaktart,
+    data.photoSignature
   ].map(normalizeForDuplicate);
 
   return crypto.createHash('sha256').update(parts.join('|')).digest('hex');
@@ -962,7 +1013,7 @@ app.get('/', (req, res) => {
   res.render('kontakt', { success: req.query.success === '1' });
 });
 
-app.post('/anfrage', formLimiter, async (req, res) => {
+app.post('/anfrage', formLimiter, handleUpload(upload.array('customerPhotos', 5)), async (req, res) => {
   const { data, errors } = validateRequestForm(req.body);
 
   if (errors.length > 0) {
@@ -985,6 +1036,9 @@ app.post('/anfrage', formLimiter, async (req, res) => {
     kontaktart
   } = data;
 
+  const customerPhotos = filesToPhotoObjects(req.files || [], name || 'Kunde', 'customer');
+  const photoSignature = customerPhotos.map(photo => `${photo.originalName}:${photo.size}`).join('|');
+
   const requestFingerprint = createRequestFingerprint({
     name,
     email,
@@ -998,7 +1052,8 @@ app.post('/anfrage', formLimiter, async (req, res) => {
     budget,
     besichtigung,
     erreichbarkeit,
-    kontaktart
+    kontaktart,
+    photoSignature
   });
 
   const anfragen = await readAnfragen();
@@ -1044,6 +1099,10 @@ app.post('/anfrage', formLimiter, async (req, res) => {
     erreichbarkeit: erreichbarkeit || '',
     kontaktart: kontaktart || '',
     details: details || '',
+    customerPhotos,
+    beforePhotos: [],
+    afterPhotos: [],
+    internalNotes: [],
     status: 'Neu',
     datum: formatBerlinDateTime()
   };
@@ -1230,6 +1289,71 @@ app.post('/admin/users/:id/delete', requireLogin, requireRole('owner'), verifyCs
   } catch (error) {
     res.redirect('/admin/users?error=' + encodeURIComponent(error.message || 'Benutzer konnte nicht gelöscht werden.'));
   }
+});
+
+
+app.post('/admin/note/:id', requireLogin, requireRole('owner', 'admin', 'mitarbeiter'), verifyCsrf, async (req, res) => {
+  const noteText = cleanMultiline(req.body.note, 1500);
+  if (!noteText) return res.redirect('/admin');
+
+  const anfragen = await readAnfragen();
+  const anfrage = anfragen.find(a => a.id === req.params.id);
+  if (anfrage) {
+    anfrage.internalNotes = Array.isArray(anfrage.internalNotes) ? anfrage.internalNotes : [];
+    anfrage.internalNotes.unshift({
+      id: crypto.randomUUID(),
+      text: noteText,
+      createdBy: req.session.username || 'Admin',
+      createdAt: new Date().toISOString(),
+      createdAtLabel: formatBerlinDateTime()
+    });
+    await createBackup('before-note');
+    await writeAnfragen(anfragen);
+    addActivity(req, 'internal_note_added', { requestId: anfrage.id, name: anfrage.name });
+  }
+
+  res.redirect('/admin#request-' + encodeURIComponent(req.params.id));
+});
+
+app.post('/admin/photos/:id/:type', requireLogin, requireRole('owner', 'admin', 'mitarbeiter'), verifyCsrf, handleUpload(upload.array('workPhotos', 8)), async (req, res) => {
+  const type = req.params.type === 'after' ? 'after' : 'before';
+  const key = type === 'after' ? 'afterPhotos' : 'beforePhotos';
+  const anfragen = await readAnfragen();
+  const anfrage = anfragen.find(a => a.id === req.params.id);
+
+  if (anfrage && req.files && req.files.length > 0) {
+    anfrage[key] = Array.isArray(anfrage[key]) ? anfrage[key] : [];
+    const photos = filesToPhotoObjects(req.files, req.session.username || 'Admin', type);
+    anfrage[key].unshift(...photos);
+    await createBackup(`before-${type}-photos`);
+    await writeAnfragen(anfragen);
+    addActivity(req, type === 'after' ? 'after_photos_uploaded' : 'before_photos_uploaded', {
+      requestId: anfrage.id,
+      name: anfrage.name,
+      count: photos.length
+    });
+  }
+
+  res.redirect('/admin#request-' + encodeURIComponent(req.params.id));
+});
+
+app.post('/admin/photos/:id/:type/:photoId/delete', requireLogin, requireRole('owner', 'admin'), verifyCsrf, async (req, res) => {
+  const type = req.params.type === 'after' ? 'after' : req.params.type === 'customer' ? 'customer' : 'before';
+  const key = type === 'after' ? 'afterPhotos' : type === 'customer' ? 'customerPhotos' : 'beforePhotos';
+  const anfragen = await readAnfragen();
+  const anfrage = anfragen.find(a => a.id === req.params.id);
+
+  if (anfrage && Array.isArray(anfrage[key])) {
+    const beforeCount = anfrage[key].length;
+    anfrage[key] = anfrage[key].filter(photo => photo.id !== req.params.photoId);
+    if (anfrage[key].length !== beforeCount) {
+      await createBackup('before-photo-delete');
+      await writeAnfragen(anfragen);
+      addActivity(req, 'photo_deleted', { requestId: anfrage.id, type, photoId: req.params.photoId });
+    }
+  }
+
+  res.redirect('/admin#request-' + encodeURIComponent(req.params.id));
 });
 
 app.post('/admin/status/:id', requireLogin, verifyCsrf, async (req, res) => {

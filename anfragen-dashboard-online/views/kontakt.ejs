@@ -106,7 +106,7 @@
           </div>
         </aside>
 
-        <form action="/anfrage" method="POST" class="request-form">
+        <form action="/anfrage" method="POST" class="request-form" enctype="multipart/form-data">
           <div class="form-head">
             <span>Projektanfrage</span>
             <h3>Erzähl uns von deinem Auftrag</h3>
@@ -188,6 +188,12 @@
             </select>
           </fieldset>
 
+
+          <fieldset class="full-fieldset upload-fieldset">
+            <legend>5. Fotos vom Einsatzort</legend>
+            <p class="field-help">Optional: Lade bis zu 5 Bilder hoch, damit wir den Aufwand besser einschätzen können. Erlaubt sind JPG, PNG oder WEBP bis 5 MB pro Bild.</p>
+            <input name="customerPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+          </fieldset>
           <label class="privacy">
             <input type="checkbox" name="datenschutz" value="ja" required>
             <span>Ich habe die Datenschutzerklärung gelesen und stimme zu, dass meine Angaben zur Bearbeitung der Anfrage verarbeitet werden.</span>

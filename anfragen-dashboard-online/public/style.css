@@ -2493,3 +2493,40 @@ pre { white-space: pre-wrap; margin: 0; font-family: inherit; color: var(--muted
   position: relative;
   z-index: 5;
 }
+
+
+/* Fix: kleinere Stift-Symbole + zuverlässiges Bearbeitungsfenster */
+.inline-edit-pencil,
+.inline-edit-pencil.small {
+  width: 1.35rem !important;
+  height: 1.35rem !important;
+  min-width: 1.35rem !important;
+  padding: 0 !important;
+  font-size: 0.72rem !important;
+  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 999px !important;
+  cursor: pointer !important;
+  position: relative !important;
+  z-index: 20 !important;
+}
+.editable-data-row .inline-edit-pencil {
+  margin-top: 0.05rem !important;
+}
+.editable-data-slot .inline-edit-pencil {
+  align-self: flex-start !important;
+}
+.inline-edit-modal.is-v2 {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+.inline-edit-modal.is-v2.is-open {
+  display: flex !important;
+}

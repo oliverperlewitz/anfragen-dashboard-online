@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GrünWerk Gartenbau</title>
   <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/wunschtermin.css">
 </head>
 <body>
   <div class="bg-orb orb-one"></div>
@@ -170,22 +171,28 @@
             </select>
           </fieldset>
 
-          <fieldset class="full-fieldset appointment-fieldset">
+          <fieldset class="full-fieldset appointment-fieldset appointment-pro">
             <legend>4. Wunschtermin</legend>
             <p class="field-help">Optional: Wähle einen freien Termin. Im Dashboard erscheint dieser Termin zuerst orange als möglicher Auftrag und wird von einem Admin bestätigt.</p>
-            <div class="appointment-grid">
-              <label>
-                <span>Datum</span>
+
+            <div class="appointment-card">
+              <label class="appointment-date-box">
+                <span>Datum auswählen</span>
                 <input type="date" name="wunschDatum" id="wunschDatum" min="">
               </label>
-              <label>
-                <span>Freie Uhrzeit</span>
-                <select name="wunschUhrzeit" id="wunschUhrzeit" disabled>
-                  <option value="">Bitte zuerst Datum wählen</option>
-                </select>
-              </label>
+
+              <input type="hidden" name="wunschUhrzeit" id="wunschUhrzeit" value="">
+
+              <div class="appointment-times-box">
+                <div class="appointment-times-head">
+                  <span>Freie Uhrzeiten</span>
+                  <small id="slotHint">Bitte zuerst ein Datum wählen.</small>
+                </div>
+                <div class="slot-card-grid" id="slotCards" aria-live="polite">
+                  <div class="slot-empty">Wähle links ein Datum aus, dann erscheinen hier die freien Uhrzeiten.</div>
+                </div>
+              </div>
             </div>
-            <p class="slot-hint" id="slotHint">Belegte Termine werden automatisch ausgeblendet.</p>
           </fieldset>
 
           <fieldset>
@@ -231,91 +238,126 @@
 
   <script>
     const dateInput = document.getElementById('wunschDatum');
-    const timeSelect = document.getElementById('wunschUhrzeit');
+    const timeInput = document.getElementById('wunschUhrzeit');
     const slotHint = document.getElementById('slotHint');
+    const slotCards = document.getElementById('slotCards');
 
-    // Feste Standard-Zeitfenster. Der Server prüft trotzdem nochmal,
-    // ob der Termin wirklich frei ist, bevor die Anfrage gespeichert wird.
     const fallbackSlots = [
       '08:00', '09:00', '10:00', '11:00',
       '12:00', '13:00', '14:00', '15:00',
       '16:00', '17:00', '18:00'
     ];
 
-    function setTimeOptions(slots, message) {
-      timeSelect.innerHTML = '<option value="">Uhrzeit wählen</option>';
-
-      let availableCount = 0;
-      slots.forEach(slot => {
-        const time = typeof slot === 'string' ? slot : slot.time;
-        const available = typeof slot === 'string' ? true : slot.available !== false;
-        if (!time) return;
-
-        const option = document.createElement('option');
-        option.value = available ? time : '';
-        option.disabled = !available;
-        option.textContent = available ? `${time} Uhr` : `${time} Uhr – belegt`;
-        timeSelect.appendChild(option);
-        if (available) availableCount += 1;
-      });
-
-      timeSelect.disabled = availableCount === 0;
-      slotHint.textContent = message || (availableCount
-        ? `${availableCount} freie Uhrzeiten an diesem Tag verfügbar.`
-        : 'An diesem Tag sind keine freien Uhrzeiten mehr verfügbar. Bitte wähle ein anderes Datum.');
-    }
-
-    function resetTimeSelect() {
-      timeSelect.innerHTML = '<option value="">Bitte zuerst Datum wählen</option>';
-      timeSelect.disabled = true;
-      slotHint.textContent = 'Belegte Termine werden automatisch ausgeblendet.';
-    }
-
-    if (dateInput && timeSelect) {
+    function setTodayMinDate() {
       const today = new Date();
       const yyyy = today.getFullYear();
       const mm = String(today.getMonth() + 1).padStart(2, '0');
       const dd = String(today.getDate()).padStart(2, '0');
       dateInput.min = `${yyyy}-${mm}-${dd}`;
+    }
 
-      async function loadSlots() {
-        const date = dateInput.value;
-        if (!date) {
-          resetTimeSelect();
+    function normalizeSlots(slots) {
+      return (slots || []).map(slot => {
+        if (typeof slot === 'string') return { time: slot, available: true };
+        return {
+          time: slot.time,
+          available: slot.available !== false
+        };
+      }).filter(slot => slot.time);
+    }
+
+    function clearSelectedTime() {
+      if (timeInput) timeInput.value = '';
+    }
+
+    function renderSlots(slots, hintText) {
+      if (!slotCards || !timeInput) return;
+      clearSelectedTime();
+      slotCards.innerHTML = '';
+
+      const normalized = normalizeSlots(slots);
+      const available = normalized.filter(slot => slot.available);
+
+      if (!normalized.length) {
+        slotCards.innerHTML = '<div class="slot-empty">Für diesen Tag wurden keine Zeiten gefunden. Bitte wähle ein anderes Datum.</div>';
+        slotHint.textContent = hintText || 'Keine Uhrzeiten gefunden.';
+        return;
+      }
+
+      normalized.forEach(slot => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = slot.available ? 'slot-card' : 'slot-card slot-card-booked';
+        button.dataset.time = slot.time;
+        button.disabled = !slot.available;
+        button.innerHTML = `<strong>${slot.time}</strong><span>${slot.available ? 'frei' : 'belegt'}</span>`;
+
+        if (slot.available) {
+          button.addEventListener('click', () => {
+            document.querySelectorAll('.slot-card.is-selected').forEach(el => el.classList.remove('is-selected'));
+            button.classList.add('is-selected');
+            timeInput.value = slot.time;
+            slotHint.textContent = `${slot.time} Uhr wurde als Wunschtermin ausgewählt.`;
+          });
+        }
+
+        slotCards.appendChild(button);
+      });
+
+      slotHint.textContent = hintText || (available.length
+        ? `${available.length} freie Uhrzeiten verfügbar. Klicke eine Uhrzeit an.`
+        : 'An diesem Tag ist keine Uhrzeit mehr frei. Bitte wähle ein anderes Datum.');
+    }
+
+    function renderLoading() {
+      clearSelectedTime();
+      slotCards.innerHTML = '<div class="slot-loading">Freie Uhrzeiten werden geprüft...</div>';
+      slotHint.textContent = 'Kalender wird geladen...';
+    }
+
+    function renderNoDate() {
+      clearSelectedTime();
+      slotCards.innerHTML = '<div class="slot-empty">Wähle links ein Datum aus, dann erscheinen hier die freien Uhrzeiten.</div>';
+      slotHint.textContent = 'Bitte zuerst ein Datum wählen.';
+    }
+
+    async function loadSlots() {
+      const date = dateInput.value;
+      if (!date) {
+        renderNoDate();
+        return;
+      }
+
+      renderLoading();
+
+      try {
+        const response = await fetch(`/api/available-slots?date=${encodeURIComponent(date)}`, {
+          headers: { 'Accept': 'application/json' },
+          cache: 'no-store'
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const data = await response.json();
+        const slots = Array.isArray(data.slots) ? data.slots : [];
+
+        if (!slots.length) {
+          renderSlots(fallbackSlots, 'Kalenderdaten konnten nicht vollständig geladen werden. Wähle eine Wunschzeit; wir prüfen sie beim Absenden nochmal.');
           return;
         }
 
-        timeSelect.innerHTML = '<option value="">Freie Uhrzeiten werden geladen...</option>';
-        timeSelect.disabled = true;
-        slotHint.textContent = 'Freie Uhrzeiten werden geprüft...';
-
-        try {
-          const response = await fetch(`/api/available-slots?date=${encodeURIComponent(date)}`, {
-            headers: { 'Accept': 'application/json' }
-          });
-
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-          const data = await response.json();
-          const slots = Array.isArray(data.slots) ? data.slots : [];
-
-          if (!slots.length) {
-            setTimeOptions(fallbackSlots, 'Keine Kalenderdaten gefunden. Bitte wähle eine Uhrzeit; der Termin wird beim Absenden nochmal geprüft.');
-            return;
-          }
-
-          setTimeOptions(slots);
-        } catch (error) {
-          console.warn('Wunschtermin konnte nicht geladen werden:', error);
-          setTimeOptions(fallbackSlots, 'Die freien Termine konnten gerade nicht geladen werden. Du kannst trotzdem eine Wunsch-Uhrzeit wählen; wir prüfen sie beim Absenden nochmal.');
-        }
+        renderSlots(slots);
+      } catch (error) {
+        console.warn('Wunschtermin konnte nicht geladen werden:', error);
+        renderSlots(fallbackSlots, 'Die freien Termine konnten gerade nicht geladen werden. Wähle trotzdem eine Wunschzeit; wir prüfen sie beim Absenden nochmal.');
       }
+    }
 
+    if (dateInput && timeInput && slotCards) {
+      setTodayMinDate();
       dateInput.addEventListener('change', loadSlots);
       dateInput.addEventListener('input', loadSlots);
-      resetTimeSelect();
-
-      // Falls der Browser/Autofill schon ein Datum gesetzt hat.
+      renderNoDate();
       if (dateInput.value) loadSlots();
     }
   </script>

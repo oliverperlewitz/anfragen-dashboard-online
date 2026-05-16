@@ -1,0 +1,157 @@
+/* Schönere Wunschtermin-Auswahl auf der Kundenwebsite */
+.appointment-pro {
+  background: linear-gradient(135deg, rgba(244, 252, 240, 0.96), rgba(255, 252, 244, 0.96));
+  border: 1px solid rgba(31, 92, 55, 0.16);
+  border-radius: 22px;
+  padding: 22px;
+  box-shadow: 0 18px 45px rgba(20, 70, 38, 0.08);
+}
+
+.appointment-pro legend {
+  padding: 0 10px;
+}
+
+.appointment-card {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(280px, 1.2fr);
+  gap: 18px;
+  align-items: stretch;
+  margin-top: 14px;
+}
+
+.appointment-date-box,
+.appointment-times-box {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(22, 80, 45, 0.14);
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.appointment-date-box span,
+.appointment-times-head span {
+  display: block;
+  font-weight: 900;
+  color: #173f28;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  margin-bottom: 8px;
+}
+
+.appointment-date-box input[type="date"] {
+  width: 100%;
+  border: 2px solid rgba(29, 91, 55, 0.2);
+  border-radius: 14px;
+  padding: 14px 14px;
+  font: inherit;
+  font-weight: 800;
+  color: #0d2f1d;
+  background: #fff;
+  outline: none;
+}
+
+.appointment-date-box input[type="date"]:focus {
+  border-color: #1e6f43;
+  box-shadow: 0 0 0 4px rgba(30, 111, 67, 0.14);
+}
+
+.appointment-times-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+
+.appointment-times-head small,
+.slot-hint {
+  color: #55745e;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.slot-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 10px;
+}
+
+.slot-card {
+  border: 2px solid rgba(26, 94, 54, 0.16);
+  background: #f8fff8;
+  border-radius: 16px;
+  padding: 12px 8px;
+  cursor: pointer;
+  color: #123b23;
+  text-align: center;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+}
+
+.slot-card strong {
+  display: block;
+  font-size: 1.05rem;
+  line-height: 1.1;
+}
+
+.slot-card span {
+  display: block;
+  margin-top: 5px;
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #2f7950;
+}
+
+.slot-card:hover {
+  transform: translateY(-2px);
+  border-color: #1e6f43;
+  box-shadow: 0 10px 22px rgba(26, 94, 54, 0.14);
+}
+
+.slot-card.is-selected {
+  background: #185c35;
+  border-color: #185c35;
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(24, 92, 53, 0.25);
+}
+
+.slot-card.is-selected span {
+  color: #dff7e6;
+}
+
+.slot-card-booked,
+.slot-card-booked:hover {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: #f2f0ea;
+  color: #888;
+  border-color: #e2ded2;
+  box-shadow: none;
+  transform: none;
+}
+
+.slot-card-booked span {
+  color: #9b5b4b;
+}
+
+.slot-empty,
+.slot-loading {
+  grid-column: 1 / -1;
+  padding: 18px;
+  border-radius: 16px;
+  background: rgba(248, 246, 237, 0.9);
+  color: #55745e;
+  font-weight: 700;
+  border: 1px dashed rgba(29, 91, 55, 0.22);
+}
+
+@media (max-width: 760px) {
+  .appointment-card {
+    grid-template-columns: 1fr;
+  }
+
+  .appointment-times-head {
+    flex-direction: column;
+  }
+}

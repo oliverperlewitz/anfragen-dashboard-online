@@ -1010,7 +1010,7 @@ function quoteImap(value) {
   return '"' + String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
 }
 
-function waitForBuffer(bufferRef, predicate, timeoutMs = 30000, label = 'IMAP') {
+function waitForBuffer(bufferRef, predicate, timeoutMs = getImapTimeoutMs(), label = 'IMAP') {
   return new Promise((resolve, reject) => {
     const started = Date.now();
     const timer = setInterval(() => {
@@ -1037,6 +1037,7 @@ async function createSimpleImapClient() {
   const host = process.env.IMAP_HOST || 'imap.strato.de';
   const port = Number(process.env.IMAP_PORT || 993);
   const secure = String(process.env.IMAP_SECURE || 'true').toLowerCase() !== 'false';
+  const timeoutMs = getImapTimeoutMs();
   let buffer = '';
   let tagCounter = 1;
 
@@ -1050,12 +1051,12 @@ async function createSimpleImapClient() {
   await new Promise((resolve, reject) => {
     socket.once(secure ? 'secureConnect' : 'connect', resolve);
     socket.once('error', reject);
-    setTimeout(() => reject(new Error('IMAP-Verbindung timeout')), 20000);
+    setTimeout(() => reject(new Error(`IMAP-Verbindung timeout nach ${timeoutMs}ms`)), timeoutMs);
   });
 
-  await waitForBuffer(() => buffer, text => /\* OK/i.test(text), 20000, 'IMAP Begrüßung');
+  await waitForBuffer(() => buffer, text => /\* OK/i.test(text), timeoutMs, 'IMAP Begrüßung');
 
-  async function command(commandText, timeoutMs = 30000) {
+  async function command(commandText, timeoutMs = getImapTimeoutMs()) {
     const tag = 'A' + String(tagCounter++).padStart(4, '0');
     const start = buffer.length;
     socket.write(`${tag} ${commandText}\r\n`);
@@ -1074,19 +1075,19 @@ async function createSimpleImapClient() {
 
   return {
     async login() {
-      await command(`LOGIN ${quoteImap(process.env.IMAP_USER)} ${quoteImap(process.env.IMAP_PASS)}`, 30000);
+      await command(`LOGIN ${quoteImap(process.env.IMAP_USER)} ${quoteImap(process.env.IMAP_PASS)}`, timeoutMs);
     },
     async selectInbox() {
-      await command('SELECT INBOX', 30000);
+      await command('SELECT INBOX', timeoutMs);
     },
     async searchAll() {
-      const response = await command('SEARCH ALL', 30000);
+      const response = await command('SEARCH ALL', timeoutMs);
       const match = response.match(/\* SEARCH([^\r\n]*)/i);
       if (!match) return [];
       return match[1].trim().split(/\s+/).filter(Boolean).map(Number).filter(Boolean);
     },
     async fetchRaw(id) {
-      const response = await command(`FETCH ${id} BODY.PEEK[]`, 60000);
+      const response = await command(`FETCH ${id} BODY.PEEK[]`, Math.max(timeoutMs, 60000));
       const literal = response.match(/\{(\d+)\}\r?\n/);
       if (!literal) return '';
       const size = Number(literal[1]);

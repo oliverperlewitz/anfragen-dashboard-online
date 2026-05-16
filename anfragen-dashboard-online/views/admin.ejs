@@ -392,16 +392,21 @@
                   const formattedBudget = budgetValue && budgetValue !== '-' ? (String(budgetValue).includes('€') ? budgetValue : budgetValue + ' €') : 'Nicht angegeben';
                   const currentStatusKey = statusKey(a.status);
                 %>
-                  <article id="request-<%= a.id %>" class="admin-request-card <%= currentStatusKey %>">
-                    <div class="admin-request-top">
-                      <div>
-                        <span class="status-pill status-pill-<%= currentStatusKey %>"><%= a.status || 'Neu' %></span>
-                        <h3><%= a.name %></h3>
-                        <p class="request-date"><%= a.datum %></p>
-                      </div>
-                      <div class="request-id">#<%= String(a.id || '').slice(-6) %></div>
-                    </div>
+                  <article id="request-<%= a.id %>" class="admin-request-card compact-request-card <%= currentStatusKey %>">
+                    <details class="request-card-details">
+                      <summary class="request-card-summary" aria-label="Auftrag von <%= a.name %> öffnen">
+                        <div class="admin-request-top compact-request-top">
+                          <div>
+                            <span class="status-pill status-pill-<%= currentStatusKey %>"><%= a.status || 'Neu' %></span>
+                            <h3><%= a.name %></h3>
+                            <p class="request-date"><%= a.datum %></p>
+                          </div>
+                          <div class="request-id">#<%= String(a.id || '').slice(-6) %></div>
+                        </div>
+                        <span class="request-open-hint">Details öffnen</span>
+                      </summary>
 
+                      <div class="request-expanded-content">
                     <div class="admin-card-grid">
                       <div class="mini-box primary-mini">
                         <span>Leistung</span>
@@ -699,6 +704,8 @@
                         </form>
                       <% } %>
                     </div>
+                      </div>
+                    </details>
                   </article>
                 <% }) %>
               </div>

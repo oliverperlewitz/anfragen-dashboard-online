@@ -1774,3 +1774,113 @@ pre { white-space: pre-wrap; margin: 0; font-family: inherit; color: var(--muted
   font-weight: 800;
   font-size: .9rem;
 }
+
+/* Kompakte Auftragskarten: erst nur Status, Name, Datum und Ticketnummer anzeigen */
+.compact-request-card {
+  padding: 0;
+}
+
+.compact-request-card::before {
+  z-index: 1;
+}
+
+.request-card-details {
+  width: 100%;
+}
+
+.request-card-summary {
+  list-style: none;
+  cursor: pointer;
+  display: block;
+  padding: 22px;
+  position: relative;
+  outline: none;
+}
+
+.request-card-summary::-webkit-details-marker {
+  display: none;
+}
+
+.request-card-summary:hover {
+  background: linear-gradient(135deg, rgba(232, 244, 226, .75), rgba(255,255,255,.2));
+}
+
+.request-card-summary:focus-visible {
+  box-shadow: inset 0 0 0 3px rgba(36, 77, 52, .22);
+  border-radius: 30px;
+}
+
+.compact-request-top {
+  padding-top: 4px;
+}
+
+.request-open-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #eef6ed;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.request-open-hint::before {
+  content: "▶";
+  font-size: 11px;
+  transition: transform .18s ease;
+}
+
+.request-card-details[open] .request-open-hint::before {
+  transform: rotate(90deg);
+}
+
+.request-card-details[open] .request-open-hint {
+  background: #e4f0df;
+}
+
+.request-card-details[open] .request-open-hint::after {
+  content: "";
+}
+
+.request-card-details[open] .request-open-hint {
+  color: var(--green);
+}
+
+.request-card-details[open] .request-open-hint {
+  font-size: 0;
+}
+
+.request-card-details[open] .request-open-hint::before {
+  font-size: 11px;
+}
+
+.request-card-details[open] .request-open-hint::after {
+  content: "Details schließen";
+  font-size: 12px;
+}
+
+.request-expanded-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 22px 22px;
+  animation: requestExpand .18s ease-out;
+}
+
+@keyframes requestExpand {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 760px) {
+  .request-card-summary,
+  .request-expanded-content {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}

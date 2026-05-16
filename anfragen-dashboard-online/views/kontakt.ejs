@@ -6,6 +6,7 @@
   <title>GrünWerk Gartenbau</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/wunschtermin.css">
+  <link rel="stylesheet" href="/kontakt-clean.css">
 </head>
 <body>
   <div class="bg-orb orb-one"></div>
@@ -24,30 +25,30 @@
       <a href="#preise">Preise</a>
       <a href="#projekte">Projekte</a>
       <a href="#kontakt">Kontakt</a>
-      <a class="nav-button" href="#kontakt">Angebot anfragen</a>
+      <a class="nav-button" href="#kontakt">Anfrage senden</a>
     </nav>
   </header>
 
   <main id="start">
     <section class="hero section-pad">
       <div class="hero-text">
-        <div class="eyebrow">🌿 Junges Gartenbau-Startup mit Stil, Qualität und Liebe zum Detail</div>
+        <div class="eyebrow">🌿 Gartenbau mit persönlicher Beratung und sauberer Ausführung</div>
         <h1>Wir verwandeln Gärten in echte Wohlfühlorte.</h1>
-        <p>Von der ersten Idee bis zur fertigen Außenanlage: GrünWerk verbindet frische Ideen, moderne Planung und echtes Handwerk.</p>
+        <p>Von der ersten Idee bis zur fertigen Außenanlage: GrünWerk verbindet moderne Planung, ehrliche Beratung und zuverlässiges Handwerk.</p>
         <div class="hero-actions">
-          <a class="button primary" href="#kontakt">Kostenlose Beratung →</a>
+          <a class="button primary" href="#kontakt">Kostenlose Anfrage senden →</a>
           <a class="button secondary" href="#projekte">Projekte ansehen</a>
         </div>
         <div class="stats">
-          <div><strong>Startup</strong><span>Frische Ideen</span></div>
-          <div><strong>100%</strong><span>Persönlich</span></div>
-          <div><strong>4.9/5</strong><span>Kundenbewertung</span></div>
+          <div><strong>Schnell</strong><span>Rückmeldung</span></div>
+          <div><strong>Fair</strong><span>Unverbindlich</span></div>
+          <div><strong>Regional</strong><span>Persönlich</span></div>
         </div>
       </div>
       <div class="hero-card">
         <img src="https://images.unsplash.com/photo-1558521958-0a228e77e984?auto=format&fit=crop&w=1300&q=80" alt="Eleganter Garten mit Terrasse und Pflanzen">
-        <div class="hero-badge">★★★★★<br><strong>Exzellente Handwerksqualität</strong></div>
-        <div class="image-caption"><span>Premium Gartenbau</span><strong>Natürlich. Modern. Zeitlos.</strong></div>
+        <div class="hero-badge">★★★★★<br><strong>Saubere Arbeit & klare Absprachen</strong></div>
+        <div class="image-caption"><span>GrünWerk Gartenbau</span><strong>Natürlich. Modern. Gepflegt.</strong></div>
       </div>
     </section>
 
@@ -60,7 +61,7 @@
       <div class="cards four">
         <article><div class="icon">🌱</div><h3>Gartengestaltung</h3><p>Individuelle Gartenkonzepte mit Bepflanzung, Wegen, Sitzplätzen und natürlichen Formen.</p></article>
         <article><div class="icon">🧱</div><h3>Pflaster & Wege</h3><p>Terrassen, Gartenwege und Einfahrten mit hochwertigen Materialien und sauberer Ausführung.</p></article>
-        <article><div class="icon">🌲</div><h3>Grünpflege</h3><p>Rasenpflege, Rückschnitt, Hecken, Beete und saisonale Pflege für gepflegte Außenanlagen.</p></article>
+        <article><div class="icon">🌲</div><h3>Gartenpflege</h3><p>Rasenpflege, Rückschnitt, Hecken, Beete und saisonale Pflege für gepflegte Außenanlagen.</p></article>
         <article><div class="icon">❄️</div><h3>Winterdienst</h3><p>Zuverlässiges Räumen und Streuen von Wegen, Einfahrten und Außenflächen im Winter.</p></article>
       </div>
     </section>
@@ -90,142 +91,146 @@
       </div>
     </section>
 
-    <section id="kontakt" class="section-pad contact-wrap">
+    <section id="kontakt" class="section-pad contact-wrap gw-contact-section">
       <% if (success) { %>
         <div class="success">Deine Anfrage wurde erfolgreich gesendet. Wir melden uns schnellstmöglich zurück.</div>
       <% } %>
 
-      <div class="contact-card">
-        <aside>
-          <span>Kontakt</span>
-          <h2>Bereit für deinen Traumgarten?</h2>
-          <p>Schreib uns kurz, was du dir wünschst. Wir melden uns zeitnah mit einer persönlichen Beratung.</p>
-          <div class="contact-info">
-            <p>☎ +49 123 456789</p>
-            <p>✉ oooperlewitz@gmail.com</p>
-            <p>📍 Musterstraße 12, 12345 Gartenstadt</p>
+      <div class="gw-contact-shell">
+        <aside class="gw-contact-aside">
+          <span class="gw-pill">Kontakt</span>
+          <h2>Bereit für deinen Garten?</h2>
+          <p>Beschreibe kurz dein Vorhaben. Wir melden uns zeitnah mit einer persönlichen Einschätzung.</p>
+          <div class="gw-contact-info">
+            <p><strong>Telefon</strong><span>+49 123 456789</span></p>
+            <p><strong>E-Mail</strong><span>service@gruenwerk-gartenservice.de</span></p>
+            <p><strong>Antworten</strong><span>Kundenmails landen direkt in unserem STRATO-Postfach und können ins Dashboard abgerufen werden.</span></p>
+          </div>
+          <div class="gw-trust-list">
+            <span>✓ Kostenlos & unverbindlich</span>
+            <span>✓ Schnelle Rückmeldung</span>
+            <span>✓ Fotos optional möglich</span>
           </div>
         </aside>
 
-        <form action="/anfrage" method="POST" class="request-form" enctype="multipart/form-data">
-          <div class="form-head">
+        <form action="/anfrage" method="POST" class="gw-request-form" enctype="multipart/form-data">
+          <div class="gw-form-head">
             <span>Projektanfrage</span>
-            <h3>Erzähl uns von deinem Auftrag</h3>
-            <p>Je genauer deine Angaben sind, desto schneller können wir dir eine passende Einschätzung geben.</p>
+            <h3>Erzähl uns kurz, was gemacht werden soll</h3>
+            <p>Nur die wichtigsten Angaben sind Pflicht. Alles Weitere kannst du freiwillig ergänzen.</p>
           </div>
 
-          <fieldset>
-            <legend>1. Kontaktdaten</legend>
-            <input name="name" placeholder="Name *" required>
-            <input name="telefon" placeholder="Telefon *" required>
-            <input name="email" type="email" placeholder="E-Mail-Adresse *" required>
-            <input name="adresse" placeholder="Adresse / Ort des Auftrags">
+          <fieldset class="gw-fieldset">
+            <legend>1. Kontakt</legend>
+            <div class="gw-grid two">
+              <input name="name" placeholder="Name *" required autocomplete="name">
+              <input name="email" type="email" placeholder="E-Mail-Adresse *" required autocomplete="email">
+              <input name="telefon" placeholder="Telefon / WhatsApp" autocomplete="tel">
+              <input name="adresse" placeholder="Adresse / Ort des Auftrags" autocomplete="street-address">
+            </div>
           </fieldset>
 
-          <fieldset>
-            <legend>2. Worum geht es?</legend>
-            <select name="leistung" required>
-              <option value="">Gewünschte Leistung *</option>
-              <option>Gartengestaltung</option>
-              <option>Gartenpflege</option>
-              <option>Rasen mähen</option>
-              <option>Hecke schneiden</option>
-              <option>Pflaster & Wege</option>
-              <option>Winterdienst</option>
-              <option>Sonstiges</option>
-            </select>
-            <select name="auftragsart">
-              <option>Auftragsart</option>
-              <option>Einmaliger Auftrag</option>
-              <option>Regelmäßige Pflege</option>
-              <option>Neues Projekt / Umgestaltung</option>
-              <option>Dringender Auftrag</option>
-            </select>
-            <select name="groesse">
-              <option>Grundstücksgröße</option>
-              <option>Klein: bis 100 m²</option>
-              <option>Mittel: 100–300 m²</option>
-              <option>Groß: 300–700 m²</option>
-              <option>Sehr groß: über 700 m²</option>
-              <option>Weiß ich nicht genau</option>
-            </select>
-            <select name="zeitraum">
-              <option>Gewünschter Zeitraum</option>
-              <option>So schnell wie möglich</option>
-              <option>Diese Woche</option>
-              <option>Diesen Monat</option>
-              <option>In den nächsten 2–3 Monaten</option>
-              <option>Ich bin flexibel</option>
-            </select>
+          <fieldset class="gw-fieldset">
+            <legend>2. Auftrag</legend>
+            <div class="gw-grid two">
+              <select name="leistung" required>
+                <option value="">Gewünschte Leistung *</option>
+                <option>Gartengestaltung</option>
+                <option>Gartenpflege</option>
+                <option>Rasen mähen</option>
+                <option>Hecke schneiden</option>
+                <option>Pflaster & Wege</option>
+                <option>Winterdienst</option>
+                <option>Sonstiges</option>
+              </select>
+              <select name="auftragsart">
+                <option value="">Auftragsart optional</option>
+                <option>Einmaliger Auftrag</option>
+                <option>Regelmäßige Pflege</option>
+                <option>Neues Projekt / Umgestaltung</option>
+                <option>Dringender Auftrag</option>
+              </select>
+            </div>
+            <textarea name="details" placeholder="Kurz beschreiben, was gemacht werden soll *" required></textarea>
           </fieldset>
 
-          <fieldset class="full-fieldset">
-            <legend>3. Details zum Auftrag</legend>
-            <textarea name="details" placeholder="Beschreibe kurz, was gemacht werden soll..." required></textarea>
-            <div class="money-field"><span>€</span><input name="budget" inputmode="decimal" placeholder="Ungefähres Budget, z. B. 500"></div>
-            <select name="besichtigung">
-              <option>Besichtigung gewünscht?</option>
-              <option>Ja, gerne vor Ort</option>
-              <option>Erst telefonisch besprechen</option>
-              <option>Noch unsicher</option>
-            </select>
-          </fieldset>
-
-          <fieldset class="full-fieldset appointment-fieldset appointment-pro">
-            <legend>4. Wunschtermin</legend>
-            <p class="field-help">Optional: Wähle einen freien Termin. Im Dashboard erscheint dieser Termin zuerst orange als möglicher Auftrag und wird von einem Admin bestätigt.</p>
-
-            <div class="appointment-card">
-              <label class="appointment-date-box">
-                <span>Datum auswählen</span>
+          <fieldset class="gw-fieldset gw-appointment-compact">
+            <legend>3. Wunschtermin optional</legend>
+            <p class="gw-help">Der Termin ist unverbindlich. Im Dashboard erscheint er zuerst orange und wird von uns bestätigt.</p>
+            <div class="gw-appointment-row">
+              <label class="gw-date-box">
+                <span>Datum</span>
                 <input type="date" name="wunschDatum" id="wunschDatum" min="">
               </label>
-
               <input type="hidden" name="wunschUhrzeit" id="wunschUhrzeit" value="">
-
-              <div class="appointment-times-box">
-                <div class="appointment-times-head">
-                  <span>Freie Uhrzeiten</span>
-                  <small id="slotHint">Bitte zuerst ein Datum wählen.</small>
-                </div>
-                <div class="slot-card-grid" id="slotCards" aria-live="polite">
-                  <div class="slot-empty">Wähle links ein Datum aus, dann erscheinen hier die freien Uhrzeiten.</div>
+              <div class="gw-time-box">
+                <div class="gw-time-head"><span>Freie Uhrzeiten</span><small id="slotHint">Bitte Datum wählen.</small></div>
+                <div class="slot-card-grid compact-slots" id="slotCards" aria-live="polite">
+                  <div class="slot-empty">Nach der Datumsauswahl erscheinen hier freie Uhrzeiten.</div>
                 </div>
               </div>
             </div>
           </fieldset>
 
-          <fieldset>
-            <legend>5. Erreichbarkeit</legend>
-            <select name="erreichbarkeit">
-              <option>Am besten erreichbar</option>
-              <option>Morgens</option>
-              <option>Mittags</option>
-              <option>Nachmittags</option>
-              <option>Abends</option>
-              <option>Jederzeit</option>
-            </select>
-            <select name="kontaktart">
-              <option>Bevorzugte Kontaktart</option>
-              <option>Telefon</option>
-              <option>E-Mail</option>
-              <option>WhatsApp</option>
-            </select>
-          </fieldset>
-
-
-          <fieldset class="full-fieldset upload-fieldset">
-            <legend>6. Fotos vom Einsatzort</legend>
-            <p class="field-help">Optional: Lade bis zu 5 Bilder hoch, damit wir den Aufwand besser einschätzen können. Erlaubt sind JPG, PNG oder WEBP bis 10 MB pro Bild.</p>
+          <fieldset class="gw-fieldset gw-upload-fieldset">
+            <legend>4. Fotos optional</legend>
+            <p class="gw-help">Bis zu 5 Bilder vom Einsatzort, max. 10 MB pro Bild. JPG, PNG oder WEBP.</p>
             <input name="customerPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple>
           </fieldset>
-          <label class="privacy">
+
+          <details class="gw-more-details">
+            <summary>Weitere Angaben optional hinzufügen</summary>
+            <fieldset class="gw-fieldset">
+              <legend>Zusatzinfos</legend>
+              <div class="gw-grid two">
+                <div class="money-field"><span>€</span><input name="budget" inputmode="decimal" placeholder="Ungefähres Budget, z. B. 500"></div>
+                <select name="groesse">
+                  <option value="">Grundstücksgröße optional</option>
+                  <option>Klein: bis 100 m²</option>
+                  <option>Mittel: 100–300 m²</option>
+                  <option>Groß: 300–700 m²</option>
+                  <option>Sehr groß: über 700 m²</option>
+                  <option>Weiß ich nicht genau</option>
+                </select>
+                <select name="zeitraum">
+                  <option value="">Gewünschter Zeitraum optional</option>
+                  <option>So schnell wie möglich</option>
+                  <option>Diese Woche</option>
+                  <option>Diesen Monat</option>
+                  <option>In den nächsten 2–3 Monaten</option>
+                  <option>Ich bin flexibel</option>
+                </select>
+                <select name="besichtigung">
+                  <option value="">Besichtigung optional</option>
+                  <option>Ja, gerne vor Ort</option>
+                  <option>Erst telefonisch besprechen</option>
+                  <option>Noch unsicher</option>
+                </select>
+                <select name="erreichbarkeit">
+                  <option value="">Am besten erreichbar optional</option>
+                  <option>Morgens</option>
+                  <option>Mittags</option>
+                  <option>Nachmittags</option>
+                  <option>Abends</option>
+                  <option>Jederzeit</option>
+                </select>
+                <select name="kontaktart">
+                  <option value="">Bevorzugte Kontaktart optional</option>
+                  <option>Telefon</option>
+                  <option>E-Mail</option>
+                  <option>WhatsApp</option>
+                </select>
+              </div>
+            </fieldset>
+          </details>
+
+          <label class="gw-privacy">
             <input type="checkbox" name="datenschutz" value="ja" required>
             <span>Ich habe die Datenschutzerklärung gelesen und stimme zu, dass meine Angaben zur Bearbeitung der Anfrage verarbeitet werden.</span>
           </label>
 
-          <button type="submit">Auftrag unverbindlich anfragen →</button>
-          <p class="form-note">Kostenlos & unverbindlich — wir melden uns schnellstmöglich zurück.</p>
+          <button class="gw-submit" type="submit">Anfrage unverbindlich senden →</button>
+          <p class="gw-form-note">Kostenlos & unverbindlich — wir melden uns schnellstmöglich zurück.</p>
         </form>
       </div>
     </section>
@@ -237,6 +242,5 @@
   </footer>
 
   <script src="/wunschtermin.js" defer></script>
-
 </body>
 </html>

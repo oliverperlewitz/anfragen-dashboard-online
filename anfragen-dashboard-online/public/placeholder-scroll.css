@@ -1,0 +1,77 @@
+/* Bewegende Platzhalter-Texte für zu lange Feld-Hinweise */
+.gw-marquee-field {
+  position: relative;
+  display: block;
+  min-width: 0;
+  width: 100%;
+}
+
+.gw-marquee-field > input,
+.gw-marquee-field > select,
+.gw-marquee-field > textarea {
+  width: 100%;
+}
+
+.gw-marquee-field .gw-marquee-overlay {
+  pointer-events: none;
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 1.25em;
+  overflow: hidden;
+  white-space: nowrap;
+  color: #6b756b;
+  opacity: .92;
+  font-size: 0.92em;
+  line-height: 1.25;
+  z-index: 2;
+}
+
+.gw-marquee-field textarea + .gw-marquee-overlay,
+.gw-marquee-field.is-textarea .gw-marquee-overlay {
+  top: 16px;
+  transform: none;
+  left: 16px;
+  right: 16px;
+}
+
+.gw-marquee-field .gw-marquee-text {
+  display: inline-block;
+  min-width: max-content;
+  padding-right: 28px;
+}
+
+.gw-marquee-field.is-overflow .gw-marquee-text {
+  animation: gwPlaceholderMove var(--gw-marquee-duration, 7s) ease-in-out 1.1s infinite alternate;
+}
+
+.gw-marquee-field.is-focused .gw-marquee-overlay,
+.gw-marquee-field.has-value .gw-marquee-overlay {
+  display: none;
+}
+
+.gw-marquee-field input.gw-native-placeholder-hidden::placeholder,
+.gw-marquee-field textarea.gw-native-placeholder-hidden::placeholder {
+  color: transparent;
+}
+
+.gw-marquee-field select.gw-native-placeholder-hidden {
+  color: transparent;
+}
+
+.gw-marquee-field select.gw-native-placeholder-hidden option {
+  color: #102f1d;
+}
+
+@keyframes gwPlaceholderMove {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(-1 * var(--gw-marquee-distance, 40px))); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gw-marquee-field.is-overflow .gw-marquee-text {
+    animation: none;
+  }
+}

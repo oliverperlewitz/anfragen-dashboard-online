@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/wunschtermin.css">
   <link rel="stylesheet" href="/kontakt-clean.css">
-  <link rel="stylesheet" href="/placeholder-scroll.css">
 </head>
 <body>
   <div class="bg-orb orb-one"></div>
@@ -243,6 +242,5 @@
   </footer>
 
   <script src="/wunschtermin.js" defer></script>
-  <script src="/placeholder-scroll.js" defer></script>
 </body>
 </html>

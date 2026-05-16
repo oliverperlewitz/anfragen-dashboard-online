@@ -1952,21 +1952,6 @@ app.use(session({
   }
 }));
 
-
-// Rechnung-Lite: Bankdaten sicher aus Render Environment Variables laden.
-app.get('/admin/invoice-settings', (req, res) => {
-  if (!req.session || !req.session.loggedIn) return res.status(401).json({ ok: false });
-  res.json({
-    companyName: process.env.INVOICE_COMPANY_NAME || 'GrünWerk Gartenbau',
-    companyAddress: process.env.INVOICE_COMPANY_ADDRESS || '',
-    iban: process.env.INVOICE_IBAN || '',
-    bic: process.env.INVOICE_BIC || '',
-    accountHolder: process.env.INVOICE_ACCOUNT_HOLDER || '',
-    bank: process.env.INVOICE_BANK || '',
-    footer: process.env.INVOICE_FOOTER || 'Vielen Dank für deinen Auftrag.'
-  });
-});
-
 app.get('/', (req, res) => {
   res.render('kontakt', { success: req.query.success === '1' });
 });

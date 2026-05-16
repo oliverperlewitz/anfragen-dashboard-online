@@ -1,6 +1,45 @@
 (function () {
   const COMPANY_NAME = 'GrünWerk Gartenbau';
   const DEFAULT_FOOTER = 'Vielen Dank für deinen Auftrag.';
+  let invoiceSettings = {
+    companyName: COMPANY_NAME,
+    companyAddress: '',
+    iban: '',
+    bic: '',
+    accountHolder: '',
+    bank: '',
+    footer: DEFAULT_FOOTER
+  };
+
+  function paymentDetailsFromSettings() {
+    return [
+      invoiceSettings.iban ? `IBAN: ${invoiceSettings.iban}` : '',
+      invoiceSettings.bic ? `BIC: ${invoiceSettings.bic}` : '',
+      invoiceSettings.accountHolder ? `Kontoinhaber: ${invoiceSettings.accountHolder}` : '',
+      invoiceSettings.bank ? `Bank: ${invoiceSettings.bank}` : ''
+    ].filter(Boolean).join('\n');
+  }
+
+  async function loadInvoiceSettings() {
+    try {
+      const response = await fetch('/admin/invoice-settings', { credentials: 'same-origin' });
+      if (!response.ok) return invoiceSettings;
+      const data = await response.json();
+      invoiceSettings = { ...invoiceSettings, ...(data || {}) };
+    } catch (error) {
+      console.warn('[Invoice] Einstellungen konnten nicht geladen werden:', error);
+    }
+    return invoiceSettings;
+  }
+
+  function applyInvoiceSettings(panel) {
+    const companyAddress = panel.querySelector('.company-address');
+    if (companyAddress && !companyAddress.value.trim() && invoiceSettings.companyAddress) companyAddress.value = invoiceSettings.companyAddress;
+
+    const ibanField = panel.querySelector('.invoice-iban');
+    const paymentDetails = paymentDetailsFromSettings();
+    if (ibanField && !ibanField.value.trim() && paymentDetails) ibanField.value = paymentDetails;
+  }
 
   function ready(fn) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
@@ -128,6 +167,7 @@
     panel.querySelector('.invoice-add-item').addEventListener('click', () => list.appendChild(createItemRow('', '1', '')));
     panel.querySelector('.invoice-preview').addEventListener('click', () => openInvoice(panel, data));
     panel.querySelector('.invoice-email').addEventListener('click', () => prepareEmail(panel, data));
+    applyInvoiceSettings(panel);
 
     const target = card.querySelector('.calendar-request-panel') || card.querySelector('.admin-card-grid') || card.querySelector('.request-expanded-content');
     if (target && target.parentNode) target.parentNode.insertBefore(panel, target.nextSibling);
@@ -214,7 +254,7 @@
       </style></head><body>
       <button class="print" onclick="window.print()">Als PDF speichern / drucken</button>
       <div class="top">
-        <div class="brand"><h1>${COMPANY_NAME}</h1><p>${escapeHtml(doc.companyAddress || 'Firmenadresse hier eintragen')}</p></div>
+        <div class="brand"><h1>${escapeHtml(invoiceSettings.companyName || COMPANY_NAME)}</h1><p>${escapeHtml(doc.companyAddress || invoiceSettings.companyAddress || 'Firmenadresse hier eintragen')}</p></div>
         <div class="meta"><strong>${escapeHtml(doc.invNo)}</strong><p>Datum: ${germanDate(doc.invDate)}\nLeistungsdatum: ${germanDate(doc.serviceDate)}\nTicket: ${escapeHtml(doc.ticket)}</p></div>
       </div>
       <div class="line"></div>
@@ -226,7 +266,7 @@
       <table><thead><tr><th>Pos.</th><th>Beschreibung</th><th>Menge</th><th>Einzelpreis</th><th>Gesamt</th></tr></thead><tbody>${rowsHtml}</tbody></table>
       <div class="total"><span>Gesamtbetrag</span><strong>${money(doc.total)}</strong></div>
       <div class="payment"><h3>Zahlungsdaten</h3><p>${escapeHtml(doc.iban || paymentText)}</p></div>
-      <div class="footer"><h3>Hinweis</h3><p>${escapeHtml(doc.legal || '')}</p><p>${DEFAULT_FOOTER}</p></div>
+      <div class="footer"><h3>Hinweis</h3><p>${escapeHtml(doc.legal || '')}</p><p>${escapeHtml(invoiceSettings.footer || DEFAULT_FOOTER)}</p></div>
       </body></html>`;
 
     const win = window.open('', '_blank');
@@ -247,16 +287,18 @@
       return;
     }
     const subject = encodeURIComponent(`${doc.title} ${doc.invNo}`);
-    const body = encodeURIComponent(`Hallo ${doc.customerName},\n\nanbei erhältst du ${doc.kind === 'cash' ? 'deine Barquittung' : 'deine Rechnung'} ${doc.invNo}.\n\nGesamtbetrag: ${money(doc.total)}\n\nViele Grüße\n${COMPANY_NAME}\n\nHinweis: Bitte die erzeugte PDF manuell anhängen.`);
+    const body = encodeURIComponent(`Hallo ${doc.customerName},\n\nanbei erhältst du ${doc.kind === 'cash' ? 'deine Barquittung' : 'deine Rechnung'} ${doc.invNo}.\n\nGesamtbetrag: ${money(doc.total)}\n\nViele Grüße\n${invoiceSettings.companyName || COMPANY_NAME}\n\nHinweis: Bitte die erzeugte PDF manuell anhängen.`);
     window.location.href = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`;
   }
 
   function initInvoices() {
     const cards = document.querySelectorAll('.admin-request-card');
     cards.forEach(makePanel);
+    document.querySelectorAll('.invoice-lite-panel').forEach(applyInvoiceSettings);
   }
 
-  ready(function () {
+  ready(async function () {
+    await loadInvoiceSettings();
     initInvoices();
     const observer = new MutationObserver(() => initInvoices());
     observer.observe(document.body, { childList: true, subtree: true });

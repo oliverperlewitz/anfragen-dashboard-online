@@ -221,15 +221,35 @@
     };
   }
 
+  function paymentDueText(doc) {
+    const due = germanDate(doc.dueDate);
+    if (doc.kind === 'cash') {
+      return `Zahlungsart: Barzahlung\nBetrag dankend bar erhalten am ${germanDate(doc.invDate)}.\nZahlungsstatus: Bezahlt`;
+    }
+    if (doc.kind === 'paypal') {
+      return [
+        'Zahlungsart: PayPal',
+        'Zahlungsziel: 14 Tage',
+        `Zahlbar bis: ${due}`,
+        `Bitte senden Sie den Rechnungsbetrag ohne Abzug bis zum genannten Datum per PayPal${invoiceSettings.paypalEmail ? ` an ${invoiceSettings.paypalEmail}` : ''}.`,
+        `Verwendungszweck: ${doc.invNo}`
+      ].filter(Boolean).join('\n');
+    }
+    if (doc.kind === 'card') {
+      return 'Zahlungsart: Kartenzahlung / Sonstiges\nZahlung erhalten oder gesondert vereinbart.';
+    }
+    return [
+      'Zahlungsart: Überweisung',
+      'Zahlungsziel: 14 Tage',
+      `Zahlbar bis: ${due}`,
+      'Bitte überweisen Sie den Rechnungsbetrag ohne Abzug bis zum genannten Datum.',
+      `Bitte geben Sie als Verwendungszweck die Rechnungsnummer ${doc.invNo} an.`
+    ].join('\n');
+  }
+
   function openInvoice(panel, data) {
     const doc = collect(panel, data);
-    const paymentText = doc.kind === 'cash'
-      ? `Betrag dankend bar erhalten am ${germanDate(doc.invDate)}.`
-      : doc.kind === 'paypal'
-        ? `Zahlungsart: PayPal. Bitte zahle den Betrag per PayPal${invoiceSettings.paypalEmail ? ` an ${invoiceSettings.paypalEmail}` : ''}. Verwendungszweck: ${doc.invNo}`
-        : doc.kind === 'card'
-          ? 'Zahlungsart: Kartenzahlung / Sonstiges.'
-          : `Bitte überweise den Betrag bis zum ${germanDate(doc.dueDate)}. Verwendungszweck: ${doc.invNo}`;
+    const paymentText = paymentDueText(doc);
 
     const rowsHtml = doc.rows.map((row, index) => `
       <tr>
@@ -332,6 +352,7 @@
         companyName: invoiceSettings.companyName || COMPANY_NAME,
         footer: invoiceSettings.footer || DEFAULT_FOOTER,
         paypalEmail: invoiceSettings.paypalEmail || '',
+        paymentText: paymentDueText(doc),
         paymentDetails: doc.iban || paymentDetailsFromSettings()
       }));
 

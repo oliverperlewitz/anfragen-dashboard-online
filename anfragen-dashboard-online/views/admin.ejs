@@ -187,8 +187,10 @@
                       <p><%= detailsText || '-' %></p>
                     </details>
 
-                    <div class="evidence-block">
-                      <h4>Fotos & Nachweise</h4>
+                    <details class="collapsible-admin-block evidence-block">
+                      <summary>Fotos & Nachweise anzeigen</summary>
+                      <div class="collapsible-admin-content">
+                        <h4>Fotos & Nachweise</h4>
 
                       <% const customerPhotos = asArray(a.customerPhotos); %>
                       <% const beforePhotos = asArray(a.beforePhotos); %>
@@ -278,10 +280,13 @@
                           <% } %>
                         </div>
                       </div>
-                    </div>
+                      </div>
+                    </details>
 
-                    <div class="internal-notes-block">
-                      <h4>Interne Notizen</h4>
+                    <details class="collapsible-admin-block internal-notes-block">
+                      <summary>Interne Notizen anzeigen</summary>
+                      <div class="collapsible-admin-content">
+                        <h4>Interne Notizen</h4>
                       <p class="internal-note-hint">Nur im Dashboard sichtbar. Kunden sehen diese Notizen nicht.</p>
                       <% const notes = asArray(a.internalNotes); %>
                       <% if (notes.length) { %>
@@ -303,7 +308,8 @@
                           <button type="submit">Notiz speichern</button>
                         </form>
                       <% } %>
-                    </div>
+                      </div>
+                    </details>
 
                     <div class="admin-card-actions">
                       <form action="/admin/status/<%= a.id %>" method="POST" class="status-form clean-status-form">

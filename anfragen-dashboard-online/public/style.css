@@ -1386,3 +1386,46 @@ pre { white-space: pre-wrap; margin: 0; font-family: inherit; color: var(--muted
   font-weight: 800;
   font-size: 0.82rem;
 }
+
+
+/* Kundenantworten lesbarer darstellen */
+.clean-reply-item {
+  border: 1px solid rgba(30, 86, 49, 0.14);
+  border-radius: 18px;
+  padding: 16px;
+  background: #fffdf6;
+  box-shadow: 0 10px 30px rgba(31, 64, 42, 0.06);
+}
+.clean-reply-subject {
+  margin: 10px 0 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(33, 86, 52, 0.07);
+  font-weight: 800;
+}
+.reply-message-clean {
+  border-left: 4px solid #1f5a36;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.reply-message-label {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #789078;
+  font-weight: 900;
+}
+.reply-message-clean p {
+  white-space: pre-wrap;
+  margin: 0;
+  line-height: 1.55;
+}
+.reply-meta-row span {
+  background: rgba(33, 86, 52, 0.08);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-weight: 800;
+}

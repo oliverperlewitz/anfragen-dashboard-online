@@ -908,23 +908,26 @@ function stripHtmlToText(html) {
     .trim();
 }
 
+
 function stripQuotedReply(value) {
   let text = fixMojibake(String(value || ''))
     .replace(/\r\n/g, '\n')
+    .replace(/\u00a0/g, ' ')
     .replace(/[ \t]+$/gm, '')
     .trim();
 
-  const cutPatterns = [
-    /\n\s*>+\s*GrünWerk Gartenbau\s*<[^>]+>\s*schrieb\s+am\s+/i,
-    /\n\s*GrünWerk Gartenbau\s*<[^>]+>\s*schrieb\s+am\s+/i,
-    /\n\s*Am\s+.+\s+schrieb\s+.+:/i,
-    /\n\s*On\s+.+\s+wrote:/i,
-    /\n\s*-----Original Message-----/i,
-    /\n\s*Von:\s+/i,
-    /\n\s*From:\s+/i
+  // Viele Mailprogramme hängen die alte Mail nicht sauber als einzelne Zeilen an,
+  // sondern direkt nach der Antwort. Deshalb schneiden wir auch Inline-Zitate ab.
+  const inlineCutPatterns = [
+    /\s+GrünWerk\s+Gartenbau\s*<[^>]+>\s+schrieb\s+am\s+.{0,160}?(?:[:>]|$)/i,
+    /\s+[\p{L}0-9 ._'-]+\s*<[^>]+>\s+schrieb\s+am\s+.{0,160}?(?:[:>]|$)/iu,
+    /\s+Am\s+.{0,220}?\s+schrieb\s+.{0,160}?(?:[:>]|$)/i,
+    /\s+On\s+.{0,220}?\s+wrote\s*:/i,
+    /\s+-----Original Message-----/i,
+    /\s+(?:Von|From):\s+/i
   ];
 
-  for (const pattern of cutPatterns) {
+  for (const pattern of inlineCutPatterns) {
     const match = text.match(pattern);
     if (match && typeof match.index === 'number' && match.index > 0) {
       text = text.slice(0, match.index).trim();
@@ -932,9 +935,32 @@ function stripQuotedReply(value) {
     }
   }
 
-  text = text
+  const quoteLinePatterns = [
+    /^>+/,
+    /^\s*Am\s+.+\s+schrieb\s+.+:/i,
+    /^\s*On\s+.+\s+wrote:/i,
+    /^\s*GrünWerk\s+Gartenbau\s*<[^>]+>\s+schrieb\s+am\s+/i,
+    /^\s*[\p{L}0-9 ._'-]+\s*<[^>]+>\s+schrieb\s+am\s+/iu,
+    /^\s*(Von|From|Gesendet|Sent|An|To|Betreff|Subject):\s+/i
+  ];
+
+  const kept = [];
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (kept.length && kept[kept.length - 1] !== '') kept.push('');
+      continue;
+    }
+    if (quoteLinePatterns.some(pattern => pattern.test(trimmed))) break;
+    kept.push(line.replace(/^\s*>+\s*/, '').trim());
+  }
+
+  text = kept.join('\n')
+    .replace(/\s*>\s*>\s*/g, '\n')
+    .replace(/\s*>\s*/g, '\n')
     .split('\n')
-    .filter(line => !line.trim().startsWith('>'))
+    .map(line => line.trim())
+    .filter((line, index, arr) => line || (index > 0 && arr[index - 1]))
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -943,8 +969,8 @@ function stripQuotedReply(value) {
 }
 
 function summarizeCustomerReply(value) {
-  const text = stripQuotedReply(value);
-  return cleanMultiline(text || value || '(keine Textantwort erkannt)', 3000);
+  const cleaned = stripQuotedReply(value);
+  return cleanMultiline(cleaned || '(keine Textantwort erkannt)', 2500);
 }
 
 function extractRequestCodes(...texts) {
@@ -1139,37 +1165,6 @@ function parseEmailHeaders(rawHeaders) {
   return headers;
 }
 
-function decodeQuotedPrintableUtf8(value) {
-  const source = String(value || '').replace(/=\r?\n/g, '');
-  const bytes = [];
-
-  for (let index = 0; index < source.length; index += 1) {
-    const char = source[index];
-    if (char === '=' && /^[A-Fa-f0-9]{2}$/.test(source.slice(index + 1, index + 3))) {
-      bytes.push(parseInt(source.slice(index + 1, index + 3), 16));
-      index += 2;
-      continue;
-    }
-    const charBytes = Buffer.from(char, 'utf8');
-    for (const byte of charBytes) bytes.push(byte);
-  }
-
-  const buffer = Buffer.from(bytes);
-  const decoded = buffer.toString('utf8');
-  return decoded.includes('�') ? buffer.toString('latin1') : decoded;
-}
-
-function fixMojibake(value) {
-  const text = String(value || '');
-  if (!/[ÃÂâ]/.test(text)) return text;
-  try {
-    const fixed = Buffer.from(text, 'latin1').toString('utf8');
-    return fixed.includes('�') ? text : fixed;
-  } catch (error) {
-    return text;
-  }
-}
-
 function decodeTransferBody(body, encoding) {
   const enc = String(encoding || '').toLowerCase();
   const text = String(body || '').replace(/^\s+|\s+$/g, '');
@@ -1177,9 +1172,11 @@ function decodeTransferBody(body, encoding) {
     try { return Buffer.from(text.replace(/\s/g, ''), 'base64').toString('utf8'); } catch (error) { return text; }
   }
   if (enc === 'quoted-printable') {
-    return decodeQuotedPrintableUtf8(text);
+    return text
+      .replace(/=\r?\n/g, '')
+      .replace(/=([A-Fa-f0-9]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
   }
-  return fixMojibake(String(body || '').trim());
+  return String(body || '').trim();
 }
 
 function getHeaderParam(headerValue, paramName) {

@@ -47,15 +47,66 @@
       const text = String(value || '');
       return text.length > length ? text.slice(0, length) + '…' : text;
     };
+    const fixReplyMojibake = (value) => {
+      const text = String(value || '');
+      if (!/[ÃÂâ]/.test(text)) return text;
+      try {
+        const fixed = Buffer.from(text, 'latin1').toString('utf8');
+        return fixed.includes('�') ? text : fixed;
+      } catch (error) {
+        return text;
+      }
+    };
     const cleanReplyPreview = (value) => {
-      const text = String(value || '')
+      let text = fixReplyMojibake(value)
         .replace(/\r\n/g, '\n')
+        .replace(/\u00a0/g, ' ')
+        .replace(/[ \t]+$/gm, '')
+        .trim();
+
+      const inlineCutPatterns = [
+        /\s+GrünWerk\s+Gartenbau\s*<[^>]+>\s+schrieb\s+am\s+.{0,160}?(?:[:>]|$)/i,
+        /\s+[\p{L}0-9 ._'-]+\s*<[^>]+>\s+schrieb\s+am\s+.{0,160}?(?:[:>]|$)/iu,
+        /\s+Am\s+.{0,220}?\s+schrieb\s+.{0,160}?(?:[:>]|$)/i,
+        /\s+On\s+.{0,220}?\s+wrote\s*:/i,
+        /\s+-----Original Message-----/i,
+        /\s+(?:Von|From):\s+/i
+      ];
+      for (const pattern of inlineCutPatterns) {
+        const match = text.match(pattern);
+        if (match && typeof match.index === 'number' && match.index > 0) {
+          text = text.slice(0, match.index).trim();
+          break;
+        }
+      }
+
+      const cleanedLines = [];
+      const stopLinePatterns = [
+        /^>+/,
+        /^\s*Am\s+.+\s+schrieb\s+.+:/i,
+        /^\s*On\s+.+\s+wrote:/i,
+        /^\s*GrünWerk\s+Gartenbau\s*<[^>]+>\s+schrieb\s+am\s+/i,
+        /^\s*[\p{L}0-9 ._'-]+\s*<[^>]+>\s+schrieb\s+am\s+/iu,
+        /^\s*(Von|From|Gesendet|Sent|An|To|Betreff|Subject):\s+/i
+      ];
+      for (const line of text.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        if (stopLinePatterns.some(pattern => pattern.test(trimmed))) break;
+        cleanedLines.push(trimmed.replace(/^>+\s*/, ''));
+      }
+
+      text = cleanedLines.join('\n')
+        .replace(/\s*>\s*>\s*/g, '\n')
+        .replace(/\s*>\s*/g, '\n')
         .split('\n')
-        .filter(line => !line.trim().startsWith('>'))
+        .map(line => line.trim())
+        .filter(Boolean)
         .join('\n')
         .replace(/\n{3,}/g, '\n\n')
         .trim();
-      return shortText(text || '(keine Textantwort erkannt)', 1800);
+
+      return shortText(text || '(keine reine Antwort erkannt)', 1200);
     };
 
   %>
@@ -240,7 +291,8 @@
                                   <time><%= reply.receivedAtLabel || '' %></time>
                                 </div>
                                 <div class="reply-subject clean-reply-subject"><%= reply.subject || '(ohne Betreff)' %></div>
-                                <div class="reply-message-box">
+                                <div class="reply-message-box reply-message-clean">
+                                  <span class="reply-message-label">Nachricht</span>
                                   <p><%= cleanReplyPreview(reply.text || '') %></p>
                                 </div>
                                 <div class="reply-meta-row">

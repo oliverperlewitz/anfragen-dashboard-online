@@ -143,7 +143,7 @@
     panel.innerHTML = `
       <summary>Zahlung & Rechnung <small>PDF/Barquittung erstellen</small></summary>
       <div class="invoice-lite-body">
-        <p class="invoice-lite-note">Erstellt eine druckbare PDF-Vorlage im Browser. Zum Speichern im Druckfenster „Als PDF speichern“ wählen. E-Mail wird vorbereitet, PDF bitte manuell anhängen.</p>
+        <p class="invoice-lite-note">PDF kann im Browser geöffnet oder direkt über STRATO per E-Mail an den Kunden gesendet werden.</p>
         <div class="invoice-lite-grid three">
           <label class="invoice-lite-field"><span>Dokument</span><select class="invoice-kind"><option value="invoice">Rechnung / Überweisung</option><option value="cash">Barzahlung / Quittung</option><option value="paypal">PayPal</option><option value="card">Kartenzahlung / Sonstiges</option></select></label>
           <label class="invoice-lite-field"><span>Rechnungsdatum</span><input class="invoice-date" type="date" value="${isoDate()}"></label>
@@ -166,7 +166,7 @@
         </div>
         <div class="invoice-lite-actions">
           <button type="button" class="invoice-preview">PDF öffnen / drucken</button>
-          <button type="button" class="secondary invoice-email">E-Mail vorbereiten</button>
+          <button type="button" class="secondary invoice-email">Rechnung per E-Mail senden</button>
         </div>
       </div>
     `;
@@ -182,7 +182,7 @@
       else if (wish.includes('rechnung') || wish.includes('überweisung') || wish.includes('ueberweisung')) kindSelect.value = 'invoice';
     }
     panel.querySelector('.invoice-preview').addEventListener('click', () => openInvoice(panel, data));
-    panel.querySelector('.invoice-email').addEventListener('click', () => prepareEmail(panel, data));
+    panel.querySelector('.invoice-email').addEventListener('click', () => sendInvoiceEmail(panel, data));
     applyInvoiceSettings(panel);
 
     const target = card.querySelector('.calendar-request-panel') || card.querySelector('.admin-card-grid') || card.querySelector('.request-expanded-content');
@@ -297,17 +297,78 @@
     win.document.close();
   }
 
-  function prepareEmail(panel, data) {
+  function getCsrfToken() {
+    const tokenInput = document.querySelector('input[name="_csrf"]');
+    return tokenInput ? tokenInput.value : '';
+  }
+
+  async function sendInvoiceEmail(panel, data) {
     const doc = collect(panel, data);
     const email = doc.customerEmail || data.email;
     if (!email || email === '-') {
       alert('Keine Kunden-E-Mail gefunden. Bitte erst E-Mail eintragen.');
       return;
     }
-    const subject = encodeURIComponent(`${doc.title} ${doc.invNo}`);
-    const body = encodeURIComponent(`Hallo ${doc.customerName},\n\nanbei erhältst du ${doc.kind === 'cash' ? 'deine Barquittung' : 'deine Rechnung'} ${doc.invNo}.\n\nGesamtbetrag: ${money(doc.total)}\n\nViele Grüße\n${invoiceSettings.companyName || COMPANY_NAME}\n\nHinweis: Bitte die erzeugte PDF manuell anhängen.`);
-    window.location.href = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`;
+    if (!doc.rows.length || doc.total <= 0) {
+      alert('Bitte mindestens eine Position mit Preis eintragen.');
+      return;
+    }
+
+    const confirmed = confirm(`Rechnung ${doc.invNo} über ${money(doc.total)} an ${email} senden?`);
+    if (!confirmed) return;
+
+    const button = panel.querySelector('.invoice-email');
+    const oldText = button ? button.textContent : '';
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Sende Rechnung...';
+    }
+
+    try {
+      const body = new URLSearchParams();
+      body.set('_csrf', getCsrfToken());
+      body.set('invoiceData', JSON.stringify({
+        ...doc,
+        companyName: invoiceSettings.companyName || COMPANY_NAME,
+        footer: invoiceSettings.footer || DEFAULT_FOOTER,
+        paypalEmail: invoiceSettings.paypalEmail || '',
+        paymentDetails: doc.iban || paymentDetailsFromSettings()
+      }));
+
+      const response = await fetch('/admin/invoice/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+        credentials: 'same-origin',
+        body
+      });
+
+      let result = {};
+      try { result = await response.json(); } catch (error) {}
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || `HTTP ${response.status}`);
+      }
+
+      alert(`Rechnung wurde gesendet.\nPDF gespeichert: ${result.filename || doc.invNo}`);
+      if (result.downloadUrl) {
+        const link = document.createElement('a');
+        link.href = result.downloadUrl;
+        link.textContent = 'Gespeicherte PDF herunterladen';
+        link.className = 'invoice-sent-download';
+        link.target = '_blank';
+        const actions = panel.querySelector('.invoice-lite-actions');
+        if (actions && !actions.querySelector('.invoice-sent-download')) actions.appendChild(link);
+      }
+    } catch (error) {
+      console.error('[Invoice] Senden fehlgeschlagen:', error);
+      alert(`Rechnung konnte nicht gesendet werden:\n${error.message}`);
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = oldText || 'Rechnung per E-Mail senden';
+      }
+    }
   }
+
 
   function initInvoices() {
     const cards = document.querySelectorAll('.admin-request-card');

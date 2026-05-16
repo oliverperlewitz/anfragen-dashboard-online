@@ -26,6 +26,13 @@ const MAX_PHOTO_SIZE_MB = Number(process.env.MAX_PHOTO_SIZE_MB || 10);
 const MAX_PHOTO_SIZE_BYTES = MAX_PHOTO_SIZE_MB * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
+const CALENDAR_SLOT_TIMES = (process.env.CALENDAR_SLOT_TIMES || '08:00,09:00,10:00,11:00,12:00,13:00,14:00,15:00,16:00,17:00')
+  .split(',')
+  .map(value => value.trim())
+  .filter(Boolean);
+const CALENDAR_DAYS_AHEAD = Number(process.env.CALENDAR_DAYS_AHEAD || 21);
+
+
 
 const STATUS_OPTIONS = [
   'Neu',
@@ -583,6 +590,137 @@ function formatBerlinDateTime(date = new Date()) {
   });
 }
 
+
+function formatBerlinDateISO(date = new Date()) {
+  const dateObj = date instanceof Date ? date : new Date(date);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Berlin',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(dateObj).reduce((acc, part) => {
+    if (part.type !== 'literal') acc[part.type] = part.value;
+    return acc;
+  }, {});
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function formatBerlinDateShort(dateValue) {
+  if (!dateValue) return '-';
+  const [year, month, day] = String(dateValue).split('-').map(Number);
+  const dateObj = new Date(Date.UTC(year || 2000, (month || 1) - 1, day || 1, 12, 0, 0));
+  return dateObj.toLocaleDateString('de-DE', {
+    timeZone: 'Europe/Berlin',
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit'
+  });
+}
+
+function addDaysISO(days) {
+  const base = new Date();
+  base.setUTCHours(12, 0, 0, 0);
+  base.setUTCDate(base.getUTCDate() + Number(days || 0));
+  return formatBerlinDateISO(base);
+}
+
+function isValidIsoDate(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
+}
+
+function isValidCalendarTime(value) {
+  return /^\d{2}:\d{2}$/.test(String(value || '')) && CALENDAR_SLOT_TIMES.includes(String(value));
+}
+
+function normalizeCalendarStatus(value) {
+  const clean = cleanText(value, 40);
+  const allowed = ['pending', 'confirmed', 'working', 'done'];
+  return allowed.includes(clean) ? clean : 'confirmed';
+}
+
+function calendarStatusLabel(status) {
+  return {
+    pending: 'Möglicher Auftrag',
+    confirmed: 'Termin bestätigt',
+    working: 'In Arbeit',
+    done: 'Erledigt'
+  }[status] || 'Termin';
+}
+
+function getRequestCalendarDate(a) {
+  return a.calendarDate || a.scheduledDate || a.wunschDatum || '';
+}
+
+function getRequestCalendarTime(a) {
+  return a.calendarTime || a.scheduledTime || a.wunschUhrzeit || '';
+}
+
+function getRequestCalendarStatus(a) {
+  return a.calendarStatus || (getRequestCalendarDate(a) && getRequestCalendarTime(a) ? 'pending' : '');
+}
+
+function isSlotBooked(anfragen, date, time, excludeId = '') {
+  return anfragen.some(item => {
+    if (excludeId && String(item.id) === String(excludeId)) return false;
+    const status = String(item.status || '').toLowerCase();
+    const calStatus = getRequestCalendarStatus(item);
+    if (status.includes('storniert') || status.includes('abgelehnt') || calStatus === 'done') return false;
+    return getRequestCalendarDate(item) === date && getRequestCalendarTime(item) === time;
+  });
+}
+
+function calendarEventFromRequest(a) {
+  const date = getRequestCalendarDate(a);
+  const time = getRequestCalendarTime(a);
+  if (!date || !time) return null;
+  const calStatus = getRequestCalendarStatus(a) || 'pending';
+  return {
+    id: a.id,
+    ticket: `#${String(a.id || '').slice(-6)}`,
+    name: a.name || 'Ohne Name',
+    leistung: a.kategorie || a.leistung || 'Auftrag',
+    status: a.status || 'Neu',
+    calendarStatus: calStatus,
+    calendarStatusLabel: calendarStatusLabel(calStatus),
+    date,
+    dateLabel: formatBerlinDateShort(date),
+    time,
+    sortKey: `${date} ${time}`
+  };
+}
+
+function buildCalendarDays(anfragen, daysAhead = CALENDAR_DAYS_AHEAD) {
+  const events = anfragen.map(calendarEventFromRequest).filter(Boolean);
+  return Array.from({ length: daysAhead }, (_, index) => {
+    const date = addDaysISO(index);
+    return {
+      date,
+      label: formatBerlinDateShort(date),
+      isToday: index === 0,
+      slots: CALENDAR_SLOT_TIMES.map(time => {
+        const slotEvents = events
+          .filter(event => event.date === date && event.time === time)
+          .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+        return {
+          date,
+          time,
+          available: slotEvents.length === 0,
+          events: slotEvents
+        };
+      })
+    };
+  });
+}
+
+function buildAvailableSlots(anfragen, date) {
+  if (!isValidIsoDate(date)) return [];
+  return CALENDAR_SLOT_TIMES.map(time => ({
+    time,
+    available: !isSlotBooked(anfragen, date, time),
+    label: `${time} Uhr`
+  }));
+}
+
 function readJsonFile(filePath, fallback = []) {
   try {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -740,6 +878,8 @@ function validateRequestForm(body) {
     besichtigung: cleanText(body.besichtigung, 80),
     erreichbarkeit: cleanText(body.erreichbarkeit, 80),
     kontaktart: cleanText(body.kontaktart, 80),
+    wunschDatum: cleanText(body.wunschDatum, 20),
+    wunschUhrzeit: cleanText(body.wunschUhrzeit, 20),
     datenschutz: body.datenschutz
   };
 
@@ -752,6 +892,8 @@ function validateRequestForm(body) {
   if (!data.leistung || data.leistung === 'Gewünschte Leistung *') errors.push('Gewünschte Leistung fehlt.');
   if (!data.details) errors.push('Details zum Auftrag fehlen.');
   if (data.budget === null) errors.push('Budget muss eine Zahl sein, zum Beispiel 500 oder 1200,50.');
+  if ((data.wunschDatum && !isValidIsoDate(data.wunschDatum)) || (data.wunschUhrzeit && !isValidCalendarTime(data.wunschUhrzeit))) errors.push('Der gewünschte Termin ist ungültig. Bitte wähle einen freien Termin aus.');
+  if ((data.wunschDatum && !data.wunschUhrzeit) || (!data.wunschDatum && data.wunschUhrzeit)) errors.push('Bitte wähle Datum und Uhrzeit für den Wunschtermin aus oder lasse beide Felder leer.');
   if (!data.datenschutz) errors.push('Datenschutz-Bestätigung fehlt.');
 
   return { data, errors };
@@ -1814,6 +1956,13 @@ app.get('/', (req, res) => {
   res.render('kontakt', { success: req.query.success === '1' });
 });
 
+app.get('/api/available-slots', async (req, res) => {
+  const date = cleanText(req.query.date, 20);
+  if (!isValidIsoDate(date)) return res.status(400).json({ ok: false, error: 'invalid_date', slots: [] });
+  const anfragen = await readAnfragen();
+  return res.json({ ok: true, date, slots: buildAvailableSlots(anfragen, date) });
+});
+
 app.post('/anfrage', formLimiter, handleUpload(upload.array('customerPhotos', 5)), async (req, res) => {
   const { data, errors } = validateRequestForm(req.body);
 
@@ -1834,7 +1983,9 @@ app.post('/anfrage', formLimiter, handleUpload(upload.array('customerPhotos', 5)
     budget,
     besichtigung,
     erreichbarkeit,
-    kontaktart
+    kontaktart,
+    wunschDatum,
+    wunschUhrzeit
   } = data;
 
   const customerPhotos = filesToPhotoObjects(req.files || [], name || 'Kunde', 'customer');
@@ -1854,6 +2005,8 @@ app.post('/anfrage', formLimiter, handleUpload(upload.array('customerPhotos', 5)
     besichtigung,
     erreichbarkeit,
     kontaktart,
+    wunschDatum,
+    wunschUhrzeit,
     photoSignature
   });
 
@@ -1862,6 +2015,10 @@ app.post('/anfrage', formLimiter, handleUpload(upload.array('customerPhotos', 5)
   if (alreadyExists) {
     console.log('Doppelte Formular-Anfrage erkannt. Speichern und E-Mail-Versand übersprungen.');
     return res.redirect('/?success=1');
+  }
+
+  if (wunschDatum && wunschUhrzeit && isSlotBooked(anfragen, wunschDatum, wunschUhrzeit)) {
+    return res.status(409).send('Dieser Termin wurde gerade vergeben. Bitte gehe zurück und wähle einen anderen freien Termin aus.');
   }
 
   const budgetText = budget ? `${budget} €` : '-';
@@ -1876,6 +2033,7 @@ app.post('/anfrage', formLimiter, handleUpload(upload.array('customerPhotos', 5)
     `Besichtigung: ${besichtigung || '-'}`,
     `Erreichbarkeit: ${erreichbarkeit || '-'}`,
     `Bevorzugte Kontaktart: ${kontaktart || '-'}`,
+    `Wunschtermin: ${wunschDatum && wunschUhrzeit ? `${formatBerlinDateShort(wunschDatum)} um ${wunschUhrzeit} Uhr` : '-'}`,
     '',
     'Details:',
     details || '-'
@@ -1899,6 +2057,12 @@ app.post('/anfrage', formLimiter, handleUpload(upload.array('customerPhotos', 5)
     besichtigung: besichtigung || '',
     erreichbarkeit: erreichbarkeit || '',
     kontaktart: kontaktart || '',
+    wunschDatum: wunschDatum || '',
+    wunschUhrzeit: wunschUhrzeit || '',
+    calendarDate: wunschDatum || '',
+    calendarTime: wunschUhrzeit || '',
+    calendarStatus: wunschDatum && wunschUhrzeit ? 'pending' : '',
+    calendarStatusLabel: wunschDatum && wunschUhrzeit ? 'Möglicher Auftrag' : '',
     details: details || '',
     customerPhotos,
     beforePhotos: [],
@@ -2107,6 +2271,8 @@ app.get('/admin', requireLogin, async (req, res) => {
     anfragen: gefiltert,
     allAnfragen: anfragen,
     generalEmails,
+    calendarDays: buildCalendarDays(anfragen),
+    calendarSlotTimes: CALENDAR_SLOT_TIMES,
     suche: req.query.suche || '',
     username: req.session.username || 'Admin',
     role: req.session.role || 'admin',
@@ -2399,6 +2565,54 @@ app.post('/admin/request/:id/update', requireLogin, requireRole('owner', 'admin'
   await writeAnfragen(anfragen);
   addActivity(req, 'request_updated', { requestId: anfrage.id, name: anfrage.name, changed });
   res.redirect('/admin#request-' + encodeURIComponent(req.params.id));
+});
+
+
+app.post('/admin/calendar/:id', requireLogin, requireRole('owner', 'admin', 'mitarbeiter'), verifyCsrf, async (req, res) => {
+  const anfragen = await readAnfragen();
+  const index = anfragen.findIndex(a => String(a.id) === String(req.params.id));
+  if (index === -1) return res.status(404).send('Anfrage nicht gefunden.');
+
+  const calendarDate = cleanText(req.body.calendarDate, 20);
+  const calendarTime = cleanText(req.body.calendarTime, 20);
+  const calendarStatus = normalizeCalendarStatus(req.body.calendarStatus);
+  const calendarNote = cleanText(req.body.calendarNote, 300);
+  const clearCalendar = req.body.clearCalendar === '1';
+
+  if (clearCalendar || (!calendarDate && !calendarTime)) {
+    await createBackup('before-calendar-clear');
+    anfragen[index].calendarDate = '';
+    anfragen[index].calendarTime = '';
+    anfragen[index].calendarStatus = '';
+    anfragen[index].calendarStatusLabel = '';
+    anfragen[index].calendarNote = '';
+    anfragen[index].calendarUpdatedAt = new Date().toISOString();
+    anfragen[index].calendarUpdatedBy = req.session.username || 'Admin';
+    await writeAnfragen(anfragen);
+    addActivity(req, 'calendar_cleared', { requestId: req.params.id });
+    return res.redirect('/admin#request-' + encodeURIComponent(req.params.id));
+  }
+
+  if (!isValidIsoDate(calendarDate) || !isValidCalendarTime(calendarTime)) {
+    return res.status(400).send('Termin ungültig. Bitte Datum und Uhrzeit auswählen.');
+  }
+
+  if (isSlotBooked(anfragen, calendarDate, calendarTime, req.params.id)) {
+    return res.status(409).send('Dieser Termin ist bereits belegt. Bitte wähle einen anderen Termin.');
+  }
+
+  await createBackup('before-calendar-update');
+  anfragen[index].calendarDate = calendarDate;
+  anfragen[index].calendarTime = calendarTime;
+  anfragen[index].calendarStatus = calendarStatus;
+  anfragen[index].calendarStatusLabel = calendarStatusLabel(calendarStatus);
+  anfragen[index].calendarNote = calendarNote;
+  anfragen[index].calendarUpdatedAt = new Date().toISOString();
+  anfragen[index].calendarUpdatedBy = req.session.username || 'Admin';
+
+  await writeAnfragen(anfragen);
+  addActivity(req, 'calendar_updated', { requestId: req.params.id, date: calendarDate, time: calendarTime, status: calendarStatus });
+  res.redirect('/admin#kalender');
 });
 
 app.post('/admin/status/:id', requireLogin, verifyCsrf, async (req, res) => {

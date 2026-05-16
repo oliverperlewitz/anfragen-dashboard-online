@@ -170,8 +170,26 @@
             </select>
           </fieldset>
 
+          <fieldset class="full-fieldset appointment-fieldset">
+            <legend>4. Wunschtermin</legend>
+            <p class="field-help">Optional: Wähle einen freien Termin. Im Dashboard erscheint dieser Termin zuerst orange als möglicher Auftrag und wird von einem Admin bestätigt.</p>
+            <div class="appointment-grid">
+              <label>
+                <span>Datum</span>
+                <input type="date" name="wunschDatum" id="wunschDatum" min="">
+              </label>
+              <label>
+                <span>Freie Uhrzeit</span>
+                <select name="wunschUhrzeit" id="wunschUhrzeit" disabled>
+                  <option value="">Bitte zuerst Datum wählen</option>
+                </select>
+              </label>
+            </div>
+            <p class="slot-hint" id="slotHint">Belegte Termine werden automatisch ausgeblendet.</p>
+          </fieldset>
+
           <fieldset>
-            <legend>4. Erreichbarkeit</legend>
+            <legend>5. Erreichbarkeit</legend>
             <select name="erreichbarkeit">
               <option>Am besten erreichbar</option>
               <option>Morgens</option>
@@ -190,7 +208,7 @@
 
 
           <fieldset class="full-fieldset upload-fieldset">
-            <legend>5. Fotos vom Einsatzort</legend>
+            <legend>6. Fotos vom Einsatzort</legend>
             <p class="field-help">Optional: Lade bis zu 5 Bilder hoch, damit wir den Aufwand besser einschätzen können. Erlaubt sind JPG, PNG oder WEBP bis 10 MB pro Bild.</p>
             <input name="customerPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple>
           </fieldset>
@@ -210,5 +228,50 @@
     <p>© 2026 GrünWerk Gartenbau. Alle Rechte vorbehalten.</p>
     <div><a href="#kontakt">Kontakt</a><a href="/admin">Admin</a></div>
   </footer>
+
+  <script>
+    const dateInput = document.getElementById('wunschDatum');
+    const timeSelect = document.getElementById('wunschUhrzeit');
+    const slotHint = document.getElementById('slotHint');
+    if (dateInput && timeSelect) {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      dateInput.min = `${yyyy}-${mm}-${dd}`;
+
+      async function loadSlots() {
+        const date = dateInput.value;
+        timeSelect.innerHTML = '<option value="">Lade freie Termine...</option>';
+        timeSelect.disabled = true;
+        if (!date) {
+          timeSelect.innerHTML = '<option value="">Bitte zuerst Datum wählen</option>';
+          slotHint.textContent = 'Belegte Termine werden automatisch ausgeblendet.';
+          return;
+        }
+        try {
+          const response = await fetch(`/api/available-slots?date=${encodeURIComponent(date)}`);
+          const data = await response.json();
+          const free = (data.slots || []).filter(slot => slot.available);
+          timeSelect.innerHTML = '<option value="">Uhrzeit wählen</option>';
+          free.forEach(slot => {
+            const option = document.createElement('option');
+            option.value = slot.time;
+            option.textContent = `${slot.time} Uhr`;
+            timeSelect.appendChild(option);
+          });
+          timeSelect.disabled = free.length === 0;
+          slotHint.textContent = free.length
+            ? `${free.length} freie Termine an diesem Tag verfügbar.`
+            : 'An diesem Tag sind keine freien Termine verfügbar. Bitte wähle ein anderes Datum.';
+        } catch (error) {
+          timeSelect.innerHTML = '<option value="">Termine konnten nicht geladen werden</option>';
+          slotHint.textContent = 'Bitte versuche es später erneut oder sende die Anfrage ohne Wunschtermin.';
+        }
+      }
+      dateInput.addEventListener('change', loadSlots);
+    }
+  </script>
+
 </body>
 </html>

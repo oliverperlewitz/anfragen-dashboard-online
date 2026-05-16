@@ -149,6 +149,14 @@
     };
     const openGeneralEmails = Array.isArray(generalEmails) ? generalEmails : [];
     const assignableRequests = Array.isArray(allAnfragen) ? allAnfragen : anfragen;
+    const calendarDaysSafe = Array.isArray(calendarDays) ? calendarDays : [];
+    const unscheduledRequests = anfragen.filter(a => !(a.calendarDate && a.calendarTime)).slice(0, 20);
+    const calendarStatusOptions = [
+      ['pending', 'Möglicher Auftrag'],
+      ['confirmed', 'Termin bestätigt'],
+      ['working', 'In Arbeit'],
+      ['done', 'Erledigt']
+    ];
     const fixReplyMojibake = (value) => {
       const text = String(value || '');
       if (!/[ÃÂâ]/.test(text)) return text;
@@ -268,6 +276,66 @@
       <% if (!imapReady) { %>
         <small>IMAP ist noch nicht eingerichtet. Trage IMAP_HOST, IMAP_USER und IMAP_PASS bei Render ein.</small>
       <% } %>
+    </section>
+
+    <section id="kalender" class="admin-panel calendar-panel">
+      <div class="department-section-head compact-head calendar-head">
+        <div>
+          <p class="admin-kicker">Terminplanung</p>
+          <h2>Kalender</h2>
+          <p>Orange bedeutet möglicher Auftrag aus dem Kundenformular. Ziehe eine Auftragskarte auf einen freien Slot oder plane den Termin im Auftrag manuell.</p>
+        </div>
+        <div class="calendar-legend">
+          <span><i class="legend-dot calendar-pending"></i> Möglicher Auftrag</span>
+          <span><i class="legend-dot calendar-confirmed"></i> Termin bestätigt</span>
+          <span><i class="legend-dot calendar-working"></i> In Arbeit</span>
+          <span><i class="legend-dot calendar-done"></i> Erledigt</span>
+        </div>
+      </div>
+
+      <% if (unscheduledRequests.length) { %>
+        <div class="calendar-drag-pool">
+          <strong>Nicht eingeplante Aufträge</strong>
+          <div class="calendar-drag-list">
+            <% unscheduledRequests.forEach(item => { %>
+              <div class="calendar-drag-item" draggable="true" data-drag-request-id="<%= item.id %>">
+                <span>#<%= String(item.id || '').slice(-6) %></span>
+                <strong><%= item.name || 'Ohne Name' %></strong>
+                <small><%= item.kategorie || item.leistung || 'Auftrag' %></small>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+      <% } %>
+
+      <div class="calendar-grid" data-calendar-grid>
+        <% calendarDaysSafe.forEach(day => { %>
+          <div class="calendar-day <%= day.isToday ? 'is-today' : '' %>">
+            <div class="calendar-day-head">
+              <strong><%= day.label %></strong>
+              <span><%= day.date %></span>
+            </div>
+            <div class="calendar-slots">
+              <% day.slots.forEach(slot => { %>
+                <div class="calendar-slot <%= slot.available ? 'slot-free' : 'slot-booked' %>" data-drop-date="<%= slot.date %>" data-drop-time="<%= slot.time %>">
+                  <div class="slot-time"><%= slot.time %></div>
+                  <% if (slot.events.length) { %>
+                    <% slot.events.forEach(event => { %>
+                      <a class="calendar-event calendar-event-<%= event.calendarStatus %>" href="#request-<%= event.id %>">
+                        <span><%= event.calendarStatusLabel %></span>
+                        <strong><%= event.ticket %> · <%= event.name %></strong>
+                        <small><%= event.leistung %></small>
+                      </a>
+                    <% }) %>
+                  <% } else { %>
+                    <span class="slot-free-label">frei</span>
+                  <% } %>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        <% }) %>
+      </div>
     </section>
 
     <section id="general-emails" class="admin-panel general-mails-panel">
@@ -392,7 +460,7 @@
                   const formattedBudget = budgetValue && budgetValue !== '-' ? (String(budgetValue).includes('€') ? budgetValue : budgetValue + ' €') : 'Nicht angegeben';
                   const currentStatusKey = statusKey(a.status);
                 %>
-                  <article id="request-<%= a.id %>" class="admin-request-card compact-request-card <%= currentStatusKey %>">
+                  <article id="request-<%= a.id %>" class="admin-request-card compact-request-card <%= currentStatusKey %>" draggable="true" data-drag-request-id="<%= a.id %>">
                     <details class="request-card-details">
                       <summary class="request-card-summary" aria-label="Auftrag von <%= a.name %> öffnen">
                         <div class="admin-request-top compact-request-top">
@@ -425,6 +493,46 @@
                         <strong><%= a.email || '-' %></strong>
                       </div>
                     </div>
+
+                    <details class="calendar-request-panel compact-subpanel" <%= a.calendarDate && a.calendarTime ? '' : 'open' %>>
+                      <summary>Terminplanung <%= a.calendarDate && a.calendarTime ? '· ' + a.calendarDate + ' ' + a.calendarTime : '' %></summary>
+                      <form action="/admin/calendar/<%= a.id %>" method="POST" class="calendar-request-form">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                        <div class="calendar-form-grid">
+                          <label>
+                            <span>Datum</span>
+                            <input type="date" name="calendarDate" value="<%= a.calendarDate || a.wunschDatum || '' %>">
+                          </label>
+                          <label>
+                            <span>Uhrzeit</span>
+                            <select name="calendarTime">
+                              <option value="">Uhrzeit wählen</option>
+                              <% (calendarSlotTimes || []).forEach(time => { %>
+                                <option value="<%= time %>" <%= (a.calendarTime || a.wunschUhrzeit || '') === time ? 'selected' : '' %>><%= time %> Uhr</option>
+                              <% }) %>
+                            </select>
+                          </label>
+                          <label>
+                            <span>Kalenderstatus</span>
+                            <select name="calendarStatus">
+                              <% calendarStatusOptions.forEach(([value, label]) => { %>
+                                <option value="<%= value %>" <%= (a.calendarStatus || 'pending') === value ? 'selected' : '' %>><%= label %></option>
+                              <% }) %>
+                            </select>
+                          </label>
+                          <label>
+                            <span>Kalendernotiz</span>
+                            <input name="calendarNote" value="<%= a.calendarNote || '' %>" placeholder="z. B. Besichtigung, Ausführung, Material mitbringen">
+                          </label>
+                        </div>
+                        <div class="calendar-form-actions">
+                          <button type="submit">Termin speichern</button>
+                          <% if (a.calendarDate && a.calendarTime) { %>
+                            <button type="submit" class="secondary" name="clearCalendar" value="1">Termin entfernen</button>
+                          <% } %>
+                        </div>
+                      </form>
+                    </details>
 
                     <div class="admin-section-block">
                       <h4>Auftragsdaten</h4>
@@ -831,6 +939,42 @@
 
       updateTemplates();
       updateNotify();
+    });
+
+
+    document.querySelectorAll('[data-drag-request-id]').forEach((item) => {
+      item.addEventListener('dragstart', (event) => {
+        event.dataTransfer.setData('text/plain', item.dataset.dragRequestId);
+        event.dataTransfer.effectAllowed = 'move';
+      });
+    });
+
+    document.querySelectorAll('[data-drop-date][data-drop-time]').forEach((slot) => {
+      slot.addEventListener('dragover', (event) => {
+        if (!slot.classList.contains('slot-free')) return;
+        event.preventDefault();
+        slot.classList.add('slot-drop-hover');
+      });
+      slot.addEventListener('dragleave', () => slot.classList.remove('slot-drop-hover'));
+      slot.addEventListener('drop', (event) => {
+        event.preventDefault();
+        slot.classList.remove('slot-drop-hover');
+        if (!slot.classList.contains('slot-free')) return;
+        const requestId = event.dataTransfer.getData('text/plain');
+        if (!requestId) return;
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/calendar/${encodeURIComponent(requestId)}`;
+        form.innerHTML = `
+          <input type="hidden" name="_csrf" value="<%- csrfToken %>">
+          <input type="hidden" name="calendarDate" value="${slot.dataset.dropDate}">
+          <input type="hidden" name="calendarTime" value="${slot.dataset.dropTime}">
+          <input type="hidden" name="calendarStatus" value="confirmed">
+          <input type="hidden" name="calendarNote" value="Per Drag & Drop eingeplant">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+      });
     });
   </script>
 

@@ -46,3 +46,14 @@ Bereits importierte E-Mails werden über die Message-ID erkannt und nicht doppel
 ## Anhänge
 
 Bild-Anhänge in JPG, PNG oder WEBP werden als Kundenfotos beim Auftrag gespeichert.
+
+
+## Timeout
+
+Bei Render Environment zusätzlich setzen:
+
+```env
+IMAP_TIMEOUT_MS=60000
+```
+
+Das gibt dem STRATO-IMAP-Login 60 Sekunden Zeit statt 30 Sekunden.

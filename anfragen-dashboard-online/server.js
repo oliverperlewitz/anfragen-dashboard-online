@@ -1010,6 +1010,12 @@ function quoteImap(value) {
   return '"' + String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
 }
 
+function getImapTimeoutMs() {
+  const value = Number(process.env.IMAP_TIMEOUT_MS || 60000);
+  if (!Number.isFinite(value) || value < 5000) return 60000;
+  return value;
+}
+
 function waitForBuffer(bufferRef, predicate, timeoutMs = getImapTimeoutMs(), label = 'IMAP') {
   return new Promise((resolve, reject) => {
     const started = Date.now();

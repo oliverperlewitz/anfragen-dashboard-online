@@ -5,6 +5,7 @@ const session = require('express-session');
 const fs = require('fs');
 const path = require('path');
 const { Resend } = require('resend');
+const { Pool } = require('pg');
 const crypto = require('crypto');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -38,7 +39,15 @@ if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
 if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, '[]', 'utf8');
 if (!fs.existsSync(ACTIVITY_LOG_FILE)) fs.writeFileSync(ACTIVITY_LOG_FILE, '[]', 'utf8');
 
-function readAnfragen() {
+const usePostgres = Boolean(process.env.DATABASE_URL);
+const pool = usePostgres ? new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+}) : null;
+
+let dbReadyPromise = null;
+
+function readAnfragenFromFile() {
   try {
     return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
   } catch (error) {
@@ -46,8 +55,91 @@ function readAnfragen() {
   }
 }
 
-function writeAnfragen(anfragen) {
+function writeAnfragenToFile(anfragen) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(anfragen, null, 2), 'utf8');
+}
+
+async function initDatabase() {
+  if (!pool) return;
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS anfragen (
+      id TEXT PRIMARY KEY,
+      request_fingerprint TEXT UNIQUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      data JSONB NOT NULL
+    )
+  `);
+
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_anfragen_created_at ON anfragen (created_at DESC)');
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_anfragen_status ON anfragen ((data->>'status'))");
+
+  const countResult = await pool.query('SELECT COUNT(*)::int AS count FROM anfragen');
+  const tableIsEmpty = Number(countResult.rows[0]?.count || 0) === 0;
+  const localAnfragen = readAnfragenFromFile();
+
+  if (tableIsEmpty && localAnfragen.length > 0) {
+    console.log(`[DB] Migriere ${localAnfragen.length} lokale Anfrage(n) aus data/anfragen.json nach PostgreSQL.`);
+    await writeAnfragen(localAnfragen);
+  }
+}
+
+async function ensureDatabase() {
+  if (!pool) return;
+  if (!dbReadyPromise) dbReadyPromise = initDatabase();
+  return dbReadyPromise;
+}
+
+function normalizeDbAnfrage(row) {
+  const data = row.data || {};
+  return {
+    ...data,
+    id: data.id || row.id,
+    requestFingerprint: data.requestFingerprint || row.request_fingerprint || '',
+    createdAt: data.createdAt || (row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString())
+  };
+}
+
+async function readAnfragen() {
+  if (!pool) return readAnfragenFromFile();
+
+  await ensureDatabase();
+  const result = await pool.query('SELECT id, request_fingerprint, created_at, data FROM anfragen ORDER BY created_at DESC');
+  return result.rows.map(normalizeDbAnfrage);
+}
+
+async function writeAnfragen(anfragen) {
+  if (!pool) {
+    writeAnfragenToFile(anfragen);
+    return;
+  }
+
+  await ensureDatabase();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('TRUNCATE TABLE anfragen');
+
+    for (const anfrage of anfragen) {
+      const id = String(anfrage.id || crypto.randomUUID());
+      const requestFingerprint = anfrage.requestFingerprint || null;
+      const createdAt = anfrage.createdAt || new Date().toISOString();
+      const data = { ...anfrage, id, requestFingerprint, createdAt };
+
+      await client.query(
+        `INSERT INTO anfragen (id, request_fingerprint, created_at, data)
+         VALUES ($1, $2, $3, $4::jsonb)`,
+        [id, requestFingerprint, createdAt, JSON.stringify(data)]
+      );
+    }
+
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 function formatBerlinDateTime(date = new Date()) {
@@ -109,12 +201,12 @@ function pruneBackups() {
   });
 }
 
-function createBackup(reason = 'manual') {
+async function createBackup(reason = 'manual') {
   try {
-    if (!fs.existsSync(DATA_FILE)) return;
-    const current = fs.readFileSync(DATA_FILE, 'utf8');
-    if (!current || current.trim() === '[]') return;
+    const anfragen = await readAnfragen();
+    if (!anfragen || anfragen.length === 0) return;
 
+    const current = JSON.stringify(anfragen, null, 2);
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const safeReason = String(reason).replace(/[^a-z0-9-_]/gi, '').slice(0, 40) || 'backup';
     const backupFile = path.join(BACKUP_DIR, `anfragen-${timestamp}-${safeReason}.json`);
@@ -733,7 +825,7 @@ app.post('/anfrage', formLimiter, async (req, res) => {
     kontaktart
   });
 
-  const anfragen = readAnfragen();
+  const anfragen = await readAnfragen();
   const alreadyExists = anfragen.some(a => a.requestFingerprint === requestFingerprint);
   if (alreadyExists) {
     console.log('Doppelte Formular-Anfrage erkannt. Speichern und E-Mail-Versand übersprungen.');
@@ -780,9 +872,9 @@ app.post('/anfrage', formLimiter, async (req, res) => {
     datum: formatBerlinDateTime()
   };
 
-  createBackup('before-create');
+  await createBackup('before-create');
   anfragen.unshift(neueAnfrage);
-  writeAnfragen(anfragen);
+  await writeAnfragen(anfragen);
   addActivity(req, 'request_created', { requestId: neueAnfrage.id, name: neueAnfrage.name, leistung: neueAnfrage.kategorie });
 
   await sendCustomerConfirmation(neueAnfrage);
@@ -817,17 +909,17 @@ app.post('/logout', requireLogin, verifyCsrf, (req, res) => {
   });
 });
 
-app.get('/admin', requireLogin, (req, res) => {
-  const anfragen = readAnfragen();
+app.get('/admin', requireLogin, async (req, res) => {
+  const anfragen = await readAnfragen();
   const suche = (req.query.suche || '').toLowerCase();
   const gefiltert = suche
     ? anfragen.filter(a =>
-        a.name.toLowerCase().includes(suche) ||
-        a.email.toLowerCase().includes(suche) ||
-        a.telefon.toLowerCase().includes(suche) ||
-        a.kategorie.toLowerCase().includes(suche) ||
-        a.nachricht.toLowerCase().includes(suche) ||
-        a.status.toLowerCase().includes(suche)
+        String(a.name || '').toLowerCase().includes(suche) ||
+        String(a.email || '').toLowerCase().includes(suche) ||
+        String(a.telefon || '').toLowerCase().includes(suche) ||
+        String(a.kategorie || '').toLowerCase().includes(suche) ||
+        String(a.nachricht || '').toLowerCase().includes(suche) ||
+        String(a.status || '').toLowerCase().includes(suche)
       )
     : anfragen;
 
@@ -857,33 +949,41 @@ app.get('/admin/activity-log/download', requireLogin, (req, res) => {
 });
 
 app.post('/admin/status/:id', requireLogin, verifyCsrf, async (req, res) => {
-  const anfragen = readAnfragen();
+  const anfragen = await readAnfragen();
   const anfrage = anfragen.find(a => a.id === req.params.id);
   if (anfrage) {
     const oldStatus = anfrage.status || 'Neu';
     const allowedStatuses = ['Neu', 'In Bearbeitung', 'Erledigt'];
     const newStatus = allowedStatuses.includes(req.body.status) ? req.body.status : oldStatus;
     anfrage.status = newStatus;
-    createBackup('before-status');
-    writeAnfragen(anfragen);
+    await createBackup('before-status');
+    await writeAnfragen(anfragen);
     addActivity(req, 'status_changed', { requestId: anfrage.id, name: anfrage.name, oldStatus, newStatus });
     await sendStatusEmail(anfrage, oldStatus, newStatus);
   }
   res.redirect('/admin');
 });
 
-app.post('/admin/delete/:id', requireLogin, verifyCsrf, (req, res) => {
-  const before = readAnfragen();
+app.post('/admin/delete/:id', requireLogin, verifyCsrf, async (req, res) => {
+  const before = await readAnfragen();
   const deleted = before.find(a => a.id === req.params.id);
   const anfragen = before.filter(a => a.id !== req.params.id);
-  createBackup('before-delete');
-  writeAnfragen(anfragen);
+  await createBackup('before-delete');
+  await writeAnfragen(anfragen);
   if (deleted) addActivity(req, 'request_deleted', { requestId: deleted.id, name: deleted.name, leistung: deleted.kategorie });
   res.redirect('/admin');
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server läuft auf Port ${PORT}`);
+ensureDatabase()
+  .then(() => {
+    console.log(`[DB] Speicher: ${usePostgres ? 'PostgreSQL' : 'JSON-Datei'}`);
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server läuft auf Port ${PORT}`);
   console.log(`Admin-Dashboard: /admin`);
-  console.log(`[MAIL] MAIL_ENABLED=${process.env.MAIL_ENABLED || 'nicht gesetzt'}, PROVIDER=Resend, RESEND_API_KEY=${process.env.RESEND_API_KEY ? 'gesetzt' : 'nicht gesetzt'}, MAIL_FROM=${getMailFrom() || 'nicht gesetzt'}, ADMIN_EMAIL=${process.env.ADMIN_EMAIL || 'nicht gesetzt'}`);
-});
+      console.log(`[MAIL] MAIL_ENABLED=${process.env.MAIL_ENABLED || 'nicht gesetzt'}, PROVIDER=Resend, RESEND_API_KEY=${process.env.RESEND_API_KEY ? 'gesetzt' : 'nicht gesetzt'}, MAIL_FROM=${getMailFrom() || 'nicht gesetzt'}, ADMIN_EMAIL=${process.env.ADMIN_EMAIL || 'nicht gesetzt'}`);
+    });
+  })
+  .catch(error => {
+    console.error('[DB] Datenbank konnte nicht initialisiert werden:', error);
+    process.exit(1);
+  });

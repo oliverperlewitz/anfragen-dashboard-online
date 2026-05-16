@@ -143,7 +143,7 @@
     panel.innerHTML = `
       <summary>Zahlung & Rechnung <small>PDF/Barquittung erstellen</small></summary>
       <div class="invoice-lite-body">
-        <p class="invoice-lite-note">PDF kann im Browser geöffnet oder direkt über STRATO per E-Mail an den Kunden gesendet werden.</p>
+        <p class="invoice-lite-note">PDF kann im Browser geöffnet oder direkt per Resend an den Kunden gesendet werden.</p>
         <div class="invoice-lite-grid three">
           <label class="invoice-lite-field"><span>Dokument</span><select class="invoice-kind"><option value="invoice">Rechnung / Überweisung</option><option value="cash">Barzahlung / Quittung</option><option value="paypal">PayPal</option><option value="card">Kartenzahlung / Sonstiges</option></select></label>
           <label class="invoice-lite-field"><span>Rechnungsdatum</span><input class="invoice-date" type="date" value="${isoDate()}"></label>

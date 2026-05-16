@@ -11,6 +11,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
+const tls = require('tls');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -969,8 +970,15 @@ async function saveInboundCustomerReply(emailData, req) {
   }
 
   const photos = emailData.attachments.map(attachment => attachmentToPhoto(attachment, emailData.from)).filter(Boolean);
+  const messageId = cleanText(emailData.messageId || '', 300);
+  if (messageId && anfragen.some(item => Array.isArray(item.customerReplies) && item.customerReplies.some(reply => reply.sourceMessageId === messageId))) {
+    console.log('[INBOUND] Kundenantwort wurde bereits importiert.', { messageId, subject: emailData.subject });
+    return { ok: true, duplicate: true, reason: 'already_imported', messageId };
+  }
+
   const reply = {
     id: crypto.randomUUID(),
+    sourceMessageId: messageId || undefined,
     from: cleanText(emailData.from, 180) || '-',
     to: cleanText(emailData.to, 180) || '-',
     subject: cleanText(emailData.subject, 300) || '(ohne Betreff)',
@@ -991,6 +999,265 @@ async function saveInboundCustomerReply(emailData, req) {
   addActivity(req, 'customer_reply_received', { requestId: anfrage.id, code: getRequestCode(anfrage), from: reply.from, photos: photos.length });
   console.log('[INBOUND] Kundenantwort gespeichert', { requestId: anfrage.id, code: getRequestCode(anfrage), from: reply.from, photos: photos.length });
   return { ok: true, requestId: anfrage.id, code: getRequestCode(anfrage), photos: photos.length };
+}
+
+
+function imapEnabled() {
+  return Boolean(process.env.IMAP_HOST && process.env.IMAP_USER && process.env.IMAP_PASS);
+}
+
+function quoteImap(value) {
+  return '"' + String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+}
+
+function waitForBuffer(bufferRef, predicate, timeoutMs = 30000, label = 'IMAP') {
+  return new Promise((resolve, reject) => {
+    const started = Date.now();
+    const timer = setInterval(() => {
+      try {
+        const value = bufferRef();
+        if (predicate(value)) {
+          clearInterval(timer);
+          resolve(value);
+          return;
+        }
+        if (Date.now() - started > timeoutMs) {
+          clearInterval(timer);
+          reject(new Error(`${label} timeout nach ${timeoutMs}ms`));
+        }
+      } catch (error) {
+        clearInterval(timer);
+        reject(error);
+      }
+    }, 50);
+  });
+}
+
+async function createSimpleImapClient() {
+  const host = process.env.IMAP_HOST || 'imap.strato.de';
+  const port = Number(process.env.IMAP_PORT || 993);
+  const secure = String(process.env.IMAP_SECURE || 'true').toLowerCase() !== 'false';
+  let buffer = '';
+  let tagCounter = 1;
+
+  const socket = secure
+    ? tls.connect({ host, port, servername: host })
+    : require('net').connect({ host, port });
+
+  socket.setEncoding('utf8');
+  socket.on('data', chunk => { buffer += chunk; });
+
+  await new Promise((resolve, reject) => {
+    socket.once(secure ? 'secureConnect' : 'connect', resolve);
+    socket.once('error', reject);
+    setTimeout(() => reject(new Error('IMAP-Verbindung timeout')), 20000);
+  });
+
+  await waitForBuffer(() => buffer, text => /\* OK/i.test(text), 20000, 'IMAP Begrüßung');
+
+  async function command(commandText, timeoutMs = 30000) {
+    const tag = 'A' + String(tagCounter++).padStart(4, '0');
+    const start = buffer.length;
+    socket.write(`${tag} ${commandText}\r\n`);
+    const all = await waitForBuffer(
+      () => buffer,
+      text => new RegExp(`\\r?\\n${tag} (OK|NO|BAD)`, 'i').test(text.slice(start)),
+      timeoutMs,
+      `IMAP ${commandText.split(' ')[0]}`
+    );
+    const response = all.slice(start);
+    if (new RegExp(`\\r?\\n${tag} (NO|BAD)`, 'i').test(response)) {
+      throw new Error(`IMAP-Befehl fehlgeschlagen: ${commandText} :: ${response.slice(-500)}`);
+    }
+    return response;
+  }
+
+  return {
+    async login() {
+      await command(`LOGIN ${quoteImap(process.env.IMAP_USER)} ${quoteImap(process.env.IMAP_PASS)}`, 30000);
+    },
+    async selectInbox() {
+      await command('SELECT INBOX', 30000);
+    },
+    async searchAll() {
+      const response = await command('SEARCH ALL', 30000);
+      const match = response.match(/\* SEARCH([^\r\n]*)/i);
+      if (!match) return [];
+      return match[1].trim().split(/\s+/).filter(Boolean).map(Number).filter(Boolean);
+    },
+    async fetchRaw(id) {
+      const response = await command(`FETCH ${id} BODY.PEEK[]`, 60000);
+      const literal = response.match(/\{(\d+)\}\r?\n/);
+      if (!literal) return '';
+      const size = Number(literal[1]);
+      const start = literal.index + literal[0].length;
+      return response.slice(start, start + size);
+    },
+    async logout() {
+      try { await command('LOGOUT', 10000); } catch (error) { /* ignore */ }
+      socket.end();
+    }
+  };
+}
+
+function decodeMimeWord(charset, encoding, value) {
+  try {
+    const enc = String(encoding || '').toUpperCase();
+    let buffer;
+    if (enc === 'B') {
+      buffer = Buffer.from(value, 'base64');
+    } else {
+      const q = value.replace(/_/g, ' ').replace(/=([A-Fa-f0-9]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+      buffer = Buffer.from(q, 'binary');
+    }
+    const cs = String(charset || '').toLowerCase();
+    if (cs.includes('iso-8859-1') || cs.includes('latin1')) return buffer.toString('latin1');
+    return buffer.toString('utf8');
+  } catch (error) {
+    return value;
+  }
+}
+
+function decodeMimeHeader(value) {
+  return String(value || '')
+    .replace(/\r?\n[ \t]+/g, ' ')
+    .replace(/=\?([^?]+)\?([bBqQ])\?([^?]+)\?=/g, (_, charset, encoding, text) => decodeMimeWord(charset, encoding, text))
+    .trim();
+}
+
+function parseEmailHeaders(rawHeaders) {
+  const headers = {};
+  const unfolded = String(rawHeaders || '').replace(/\r?\n[ \t]+/g, ' ');
+  for (const line of unfolded.split(/\r?\n/)) {
+    const index = line.indexOf(':');
+    if (index === -1) continue;
+    const key = line.slice(0, index).trim().toLowerCase();
+    const value = line.slice(index + 1).trim();
+    if (!headers[key]) headers[key] = value;
+    else headers[key] += ', ' + value;
+  }
+  return headers;
+}
+
+function decodeTransferBody(body, encoding) {
+  const enc = String(encoding || '').toLowerCase();
+  const text = String(body || '').replace(/^\s+|\s+$/g, '');
+  if (enc === 'base64') {
+    try { return Buffer.from(text.replace(/\s/g, ''), 'base64').toString('utf8'); } catch (error) { return text; }
+  }
+  if (enc === 'quoted-printable') {
+    return text
+      .replace(/=\r?\n/g, '')
+      .replace(/=([A-Fa-f0-9]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+  }
+  return String(body || '').trim();
+}
+
+function getHeaderParam(headerValue, paramName) {
+  const pattern = new RegExp(`${paramName}\\*?=(?:\"([^\"]+)\"|([^;]+))`, 'i');
+  const match = String(headerValue || '').match(pattern);
+  return decodeMimeHeader((match && (match[1] || match[2])) || '');
+}
+
+function splitRawEmail(raw) {
+  const normalized = String(raw || '').replace(/\r\n/g, '\n');
+  const index = normalized.indexOf('\n\n');
+  if (index === -1) return { headers: {}, body: normalized };
+  return {
+    headers: parseEmailHeaders(normalized.slice(0, index)),
+    body: normalized.slice(index + 2)
+  };
+}
+
+function parseMimeParts(headers, body, result) {
+  const contentType = headers['content-type'] || 'text/plain';
+  const transfer = headers['content-transfer-encoding'] || '';
+  const disposition = headers['content-disposition'] || '';
+  const boundary = getHeaderParam(contentType, 'boundary');
+
+  if (/multipart\//i.test(contentType) && boundary) {
+    const parts = String(body || '').split(new RegExp(`--${boundary.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:--)?\\s*`, 'g'));
+    for (const part of parts) {
+      if (!part.trim() || part.trim() === '--') continue;
+      const parsed = splitRawEmail(part);
+      parseMimeParts(parsed.headers, parsed.body, result);
+    }
+    return;
+  }
+
+  const filename = getHeaderParam(disposition, 'filename') || getHeaderParam(contentType, 'name');
+  const mimeType = String(contentType.split(';')[0] || '').trim().toLowerCase();
+
+  if (mimeType === 'text/plain' && !filename) {
+    result.textParts.push(decodeTransferBody(body, transfer));
+    return;
+  }
+
+  if (mimeType === 'text/html' && !filename) {
+    result.htmlParts.push(decodeTransferBody(body, transfer));
+    return;
+  }
+
+  if (ALLOWED_IMAGE_TYPES.includes(mimeType)) {
+    let base64 = String(body || '').trim();
+    if (String(transfer).toLowerCase() !== 'base64') {
+      const decoded = decodeTransferBody(body, transfer);
+      base64 = Buffer.from(decoded, 'binary').toString('base64');
+    }
+    result.attachments.push({
+      filename: filename || 'kundenantwort-foto',
+      contentType: mimeType,
+      content: base64.replace(/\s/g, '')
+    });
+  }
+}
+
+function parseRawEmail(raw) {
+  const parsed = splitRawEmail(raw);
+  const result = { textParts: [], htmlParts: [], attachments: [] };
+  parseMimeParts(parsed.headers, parsed.body, result);
+  const from = decodeMimeHeader(parsed.headers.from || '');
+  const to = decodeMimeHeader(parsed.headers.to || '');
+  const subject = decodeMimeHeader(parsed.headers.subject || '');
+  const messageId = cleanText(parsed.headers['message-id'] || crypto.createHash('sha1').update(String(raw || '')).digest('hex'), 300);
+  const text = result.textParts.join('\n\n').trim() || stripHtmlToText(result.htmlParts.join('\n\n'));
+  const html = result.htmlParts.join('\n\n').trim();
+  return { from, to, subject, text, html, attachments: result.attachments, messageId };
+}
+
+async function fetchCustomerRepliesFromImap(req) {
+  if (!imapEnabled()) {
+    throw new Error('IMAP ist nicht eingerichtet. Bitte IMAP_HOST, IMAP_USER und IMAP_PASS bei Render setzen.');
+  }
+
+  const client = await createSimpleImapClient();
+  const limit = Number(process.env.IMAP_FETCH_LIMIT || 30);
+  let imported = 0;
+  let duplicates = 0;
+  let skipped = 0;
+  let checked = 0;
+
+  try {
+    await client.login();
+    await client.selectInbox();
+    const ids = await client.searchAll();
+    const latest = ids.slice(-limit).reverse();
+
+    for (const id of latest) {
+      checked += 1;
+      const raw = await client.fetchRaw(id);
+      if (!raw) { skipped += 1; continue; }
+      const emailData = parseRawEmail(raw);
+      const result = await saveInboundCustomerReply(emailData, req);
+      if (result.duplicate) duplicates += 1;
+      else if (result.ok) imported += 1;
+      else skipped += 1;
+    }
+  } finally {
+    await client.logout();
+  }
+
+  return { imported, duplicates, skipped, checked };
 }
 
 function requireLogin(req, res, next) {
@@ -1351,6 +1618,19 @@ app.post('/logout', requireLogin, verifyCsrf, (req, res) => {
   });
 });
 
+
+app.post('/admin/fetch-mails', requireLogin, requireRole('owner', 'admin', 'mitarbeiter'), verifyCsrf, async (req, res) => {
+  try {
+    const result = await fetchCustomerRepliesFromImap(req);
+    addActivity(req, 'imap_replies_fetched', result);
+    const message = `E-Mails geprüft: ${result.checked}. Neu importiert: ${result.imported}. Bereits vorhanden: ${result.duplicates}. Nicht zugeordnet: ${result.skipped}.`;
+    res.redirect('/admin?mailSync=' + encodeURIComponent(message));
+  } catch (error) {
+    console.error('[IMAP] Abruf fehlgeschlagen:', error);
+    res.redirect('/admin?mailError=' + encodeURIComponent(error.message || 'E-Mail-Abruf fehlgeschlagen.'));
+  }
+});
+
 app.get('/admin', requireLogin, async (req, res) => {
   const anfragen = await readAnfragen();
   const suche = (req.query.suche || '').toLowerCase();
@@ -1375,7 +1655,10 @@ app.get('/admin', requireLogin, async (req, res) => {
     permissions,
     csrfToken: createCsrfToken(req),
     activityLog: permissions.canViewActivity ? readActivityLog(10) : [],
-    backups: permissions.canDownloadBackups ? listBackups(20) : []
+    backups: permissions.canDownloadBackups ? listBackups(20) : [],
+    mailSync: req.query.mailSync || '',
+    mailError: req.query.mailError || '',
+    imapReady: imapEnabled()
   });
 });
 

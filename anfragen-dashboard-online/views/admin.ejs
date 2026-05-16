@@ -86,6 +86,27 @@
       </div>
     </section>
 
+    <% if (mailSync) { %>
+      <section class="admin-alert success-alert"><%= mailSync %></section>
+    <% } %>
+    <% if (mailError) { %>
+      <section class="admin-alert error-alert"><%= mailError %></section>
+    <% } %>
+
+    <section class="admin-toolbar-panel mail-sync-panel">
+      <div>
+        <strong>Kundenantworten aus STRATO abrufen</strong>
+        <p>Importiert neue Antworten aus dem STRATO-Postfach und ordnet sie über die Anfragenummer im Betreff zu.</p>
+      </div>
+      <form action="/admin/fetch-mails" method="POST">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" <%= imapReady ? '' : 'disabled' %>>E-Mails abrufen</button>
+      </form>
+      <% if (!imapReady) { %>
+        <small>IMAP ist noch nicht eingerichtet. Trage IMAP_HOST, IMAP_USER und IMAP_PASS bei Render ein.</small>
+      <% } %>
+    </section>
+
     <section class="admin-toolbar-panel">
       <form action="/admin" method="GET" class="admin-pro-search">
         <input name="suche" value="<%= suche %>" placeholder="Suchen nach Name, Telefon, E-Mail, Ort, Leistung oder Status...">

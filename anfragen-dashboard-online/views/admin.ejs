@@ -297,7 +297,7 @@
       <section class="admin-alert error-alert" data-admin-page="uebersicht"><%= mailError %></section>
     <% } %>
 
-    <section id="emails" class="admin-toolbar-panel mail-sync-panel" data-admin-page="emails">
+    <section id="emails" class="admin-toolbar-panel mail-sync-panel" data-admin-page="emails" hidden>
       <div>
         <strong>Kundenantworten aus STRATO abrufen</strong>
         <p>Importiert neue Antworten aus dem STRATO-Postfach und ordnet sie über die Anfragenummer im Betreff zu.</p>
@@ -311,7 +311,7 @@
       <% } %>
     </section>
 
-    <section id="kalender" class="admin-panel calendar-panel" data-admin-page="kalender">
+    <section id="kalender" class="admin-panel calendar-panel" data-admin-page="kalender" hidden>
       <div class="department-section-head compact-head calendar-head">
         <div>
           <p class="admin-kicker">Terminplanung</p>
@@ -394,7 +394,7 @@
       </div>
     </section>
 
-    <section id="general-emails" class="admin-panel general-mails-panel" data-admin-page="emails">
+    <section id="general-emails" class="admin-panel general-mails-panel" data-admin-page="emails" hidden>
       <div class="department-section-head compact-head">
         <div>
           <p class="admin-kicker">Posteingang</p>
@@ -464,7 +464,7 @@
       <% } %>
     </section>
 
-    <section class="admin-toolbar-panel" data-admin-page="anfragen">
+    <section class="admin-toolbar-panel" data-admin-page="anfragen" hidden>
       <form action="/admin" method="GET" class="admin-pro-search">
         <input name="suche" value="<%= suche %>" placeholder="Suchen nach Name, Telefon, E-Mail, Ort, Leistung oder Status...">
         <button type="submit">Suchen</button>
@@ -472,7 +472,7 @@
       </form>
     </section>
 
-    <section id="anfragen" class="department-overview" data-admin-page="anfragen">
+    <section id="anfragen" class="department-overview" data-admin-page="anfragen" hidden>
       <% grouped.forEach(dep => { %>
         <a class="department-tile" href="#dep-<%= dep.name.toLowerCase().replaceAll(' ', '-').replaceAll('&', 'und') %>">
           <span class="department-icon"><%= dep.icon %></span>
@@ -485,12 +485,12 @@
     </section>
 
     <% if (anfragen.length === 0) { %>
-      <section class="admin-panel empty-state" data-admin-page="anfragen">
+      <section class="admin-panel empty-state" data-admin-page="anfragen" hidden>
         <h2>Keine Anfragen gefunden.</h2>
         <p>Neue Projektanfragen erscheinen automatisch hier.</p>
       </section>
     <% } else { %>
-      <section class="department-stack" data-admin-page="anfragen">
+      <section class="department-stack" data-admin-page="anfragen" hidden>
         <% grouped.forEach(dep => { %>
           <section class="department-section" id="dep-<%= dep.name.toLowerCase().replaceAll(' ', '-').replaceAll('&', 'und') %>">
             <div class="department-section-head">
@@ -890,7 +890,7 @@
 
 
     <% if (permissions && (permissions.canDownloadBackups || permissions.canViewActivity)) { %>
-      <section id="sicherheit" class="admin-panel security-hub-panel" data-admin-page="sicherheit">
+      <section id="sicherheit" class="admin-panel security-hub-panel" data-admin-page="sicherheit" hidden>
         <div class="department-section-head compact-head">
           <div>
             <p class="admin-kicker">Sicherheit</p>
@@ -907,7 +907,7 @@
       </section>
     <% } %>
 
-    <section id="login-historie" class="admin-panel security-section-card placeholder-security-panel" data-admin-page="sicherheit">
+    <section id="login-historie" class="admin-panel security-section-card placeholder-security-panel" data-admin-page="sicherheit" hidden>
       <div class="department-section-head compact-head">
         <div>
           <p class="admin-kicker">Sicherheit</p>
@@ -918,7 +918,7 @@
       </div>
     </section>
 
-    <section id="geloeschte-anfragen" class="admin-panel security-section-card placeholder-security-panel" data-admin-page="sicherheit">
+    <section id="geloeschte-anfragen" class="admin-panel security-section-card placeholder-security-panel" data-admin-page="sicherheit" hidden>
       <div class="department-section-head compact-head">
         <div>
           <p class="admin-kicker">Sicherheit</p>
@@ -930,7 +930,7 @@
     </section>
 
     <% if (permissions && permissions.canDownloadBackups) { %>
-    <section id="backups" class="admin-panel backup-panel security-section-card" data-admin-page="sicherheit">
+    <section id="backups" class="admin-panel backup-panel security-section-card" data-admin-page="sicherheit" hidden>
       <div class="department-section-head compact-head">
         <div>
           <p class="admin-kicker">Datensicherung</p>
@@ -966,7 +966,7 @@
 
 
     <% if (permissions && permissions.canViewActivity && activityLog && activityLog.length) { %>
-      <section id="aktivitaetsprotokoll" class="admin-panel activity-panel security-section-card" data-admin-page="sicherheit">
+      <section id="aktivitaetsprotokoll" class="admin-panel activity-panel security-section-card" data-admin-page="sicherheit" hidden>
         <div class="department-section-head compact-head">
           <div>
             <p class="admin-kicker">Sicherheit</p>

@@ -4,9 +4,24 @@
     else fn();
   }
 
+  function normalized(value) {
+    return String(value || '').trim().toLowerCase();
+  }
+
   function isIgnoredField(el) {
     if (!el || el.dataset.noMarquee === 'true') return true;
-    if (el.matches('input[type="file"], input[type="checkbox"], input[type="radio"], input[type="hidden"], input[type="submit"], button')) return true;
+    if (el.matches('textarea, input[type="file"], input[type="checkbox"], input[type="radio"], input[type="hidden"], input[type="submit"], button')) return true;
+
+    const name = normalized(el.getAttribute('name'));
+    const type = normalized(el.getAttribute('type'));
+    const placeholder = normalized(el.getAttribute('placeholder'));
+
+    // Name und E-Mail sollen bewusst stehen bleiben.
+    if (name === 'name' || name === 'email') return true;
+    if (type === 'email') return true;
+    if (placeholder.includes('name')) return true;
+    if (placeholder.includes('e-mail') || placeholder.includes('email')) return true;
+
     return false;
   }
 
@@ -50,7 +65,6 @@
 
     const wrapper = document.createElement('span');
     wrapper.className = 'gw-marquee-field';
-    if (el.tagName === 'TEXTAREA') wrapper.classList.add('is-textarea');
 
     parent.insertBefore(wrapper, el);
     wrapper.appendChild(el);
@@ -83,9 +97,12 @@
         const textWidth = measureTextWidth(currentText, el);
         const overflow = textWidth > fieldWidth && !hasRealValue(el);
         wrapper.classList.toggle('is-overflow', overflow);
-        const distance = Math.max(18, Math.ceil(textWidth - fieldWidth + 22));
+
+        const distance = Math.max(18, Math.ceil(textWidth - fieldWidth + 28));
+        // Langsamer als vorher: je länger der Text, desto länger läuft er.
+        const duration = Math.min(24, Math.max(10, distance / 8));
         wrapper.style.setProperty('--gw-marquee-distance', distance + 'px');
-        wrapper.style.setProperty('--gw-marquee-duration', Math.min(11, Math.max(5, distance / 16)) + 's');
+        wrapper.style.setProperty('--gw-marquee-duration', duration + 's');
       });
     }
 
@@ -93,13 +110,13 @@
       el.addEventListener(eventName, update);
     });
 
-    setTimeout(update, 60);
+    setTimeout(update, 80);
     window.addEventListener('resize', update);
   }
 
   function init() {
     document
-      .querySelectorAll('input[placeholder], textarea[placeholder], select')
+      .querySelectorAll('input[placeholder], select')
       .forEach(enhanceField);
   }
 

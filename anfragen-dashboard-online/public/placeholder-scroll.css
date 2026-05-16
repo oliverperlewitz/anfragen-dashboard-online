@@ -7,8 +7,7 @@
 }
 
 .gw-marquee-field > input,
-.gw-marquee-field > select,
-.gw-marquee-field > textarea {
+.gw-marquee-field > select {
   width: 100%;
 }
 
@@ -29,22 +28,16 @@
   z-index: 2;
 }
 
-.gw-marquee-field textarea + .gw-marquee-overlay,
-.gw-marquee-field.is-textarea .gw-marquee-overlay {
-  top: 16px;
-  transform: none;
-  left: 16px;
-  right: 16px;
-}
-
 .gw-marquee-field .gw-marquee-text {
   display: inline-block;
   min-width: max-content;
-  padding-right: 28px;
+  padding-right: 32px;
+  will-change: transform;
 }
 
+/* Läuft nur in eine Richtung und langsamer. */
 .gw-marquee-field.is-overflow .gw-marquee-text {
-  animation: gwPlaceholderMove var(--gw-marquee-duration, 7s) ease-in-out 1.1s infinite alternate;
+  animation: gwPlaceholderMove var(--gw-marquee-duration, 12s) linear 1.15s infinite;
 }
 
 .gw-marquee-field.is-focused .gw-marquee-overlay,
@@ -52,8 +45,7 @@
   display: none;
 }
 
-.gw-marquee-field input.gw-native-placeholder-hidden::placeholder,
-.gw-marquee-field textarea.gw-native-placeholder-hidden::placeholder {
+.gw-marquee-field input.gw-native-placeholder-hidden::placeholder {
   color: transparent;
 }
 
@@ -63,6 +55,14 @@
 
 .gw-marquee-field select.gw-native-placeholder-hidden option {
   color: #102f1d;
+}
+
+/* Textarea bleibt normal: kein Lauftext, Text kann in mehreren Zeilen stehen. */
+.gw-request-form textarea::placeholder,
+textarea::placeholder {
+  white-space: pre-line;
+  color: #6b756b;
+  opacity: .9;
 }
 
 @keyframes gwPlaceholderMove {

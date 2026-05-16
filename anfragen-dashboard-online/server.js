@@ -2372,7 +2372,7 @@ app.post('/admin/request/:id/update', requireLogin, requireRole('owner', 'admin'
   };
 
   if (!updates.name) updates.name = anfrage.name || 'Unbekannt';
-  if (updates.email && !isEmail(updates.email)) return res.redirect('/admin?error=' + encodeURIComponent('E-Mail-Adresse ist ungültig.') + '#request-' + encodeURIComponent(req.params.id));
+  if (updates.email && !isValidEmail(updates.email)) return res.redirect('/admin?error=' + encodeURIComponent('E-Mail-Adresse ist ungültig.') + '#request-' + encodeURIComponent(req.params.id));
 
   Object.assign(anfrage, updates);
   anfrage.leistung = updates.kategorie || updates.leistung || anfrage.kategorie || 'Sonstiges';

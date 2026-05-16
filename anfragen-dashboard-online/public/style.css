@@ -1143,3 +1143,22 @@ pre { white-space: pre-wrap; margin: 0; font-family: inherit; color: var(--muted
     grid-template-columns: 1fr;
   }
 }
+
+.photo-download-link {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 7px 9px;
+  border-radius: 999px;
+  background: #eef6ed;
+  color: #244d34;
+  border: 1px solid #d8e8d6;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.photo-download-link:hover {
+  background: #dfeedd;
+}

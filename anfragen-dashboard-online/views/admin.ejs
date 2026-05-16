@@ -41,6 +41,8 @@
     const grouped = departments.map(dep => ({ ...dep, items: anfragen.filter(a => getDepartment(a) === dep.name) }));
     const asArray = (value) => Array.isArray(value) ? value : [];
     const photoTitle = (photo) => [photo.originalName || 'Foto', photo.uploadedAtLabel || '', photo.uploadedBy ? ('von ' + photo.uploadedBy) : ''].filter(Boolean).join(' · ');
+    const photoUrl = (a, photo) => `/admin/photo/${encodeURIComponent(a.id)}/${encodeURIComponent(photo.id)}`;
+    const photoDownloadUrl = (a, photo) => `/admin/photo/${encodeURIComponent(a.id)}/${encodeURIComponent(photo.id)}/download`;
 
   %>
 
@@ -198,7 +200,8 @@
                           <div class="photo-grid">
                             <% customerPhotos.forEach(photo => { %>
                               <figure class="photo-card">
-                                <a href="<%= photo.dataUrl %>" target="_blank" rel="noopener"><img src="<%= photo.dataUrl %>" alt="<%= photo.originalName || 'Kundenfoto' %>"></a>
+                                <a href="<%= photoUrl(a, photo) %>" target="_blank" rel="noopener"><img src="<%= photoUrl(a, photo) %>" alt="<%= photo.originalName || 'Kundenfoto' %>"></a>
+                                <a class="photo-download-link" href="<%= photoDownloadUrl(a, photo) %>">Foto herunterladen</a>
                                 <figcaption><%= photoTitle(photo) %></figcaption>
                                 <% if (permissions && permissions.canDeleteRequests) { %>
                                   <form action="/admin/photos/<%= a.id %>/customer/<%= photo.id %>/delete" method="POST" onsubmit="return confirm('Dieses Kundenfoto wirklich löschen?');">
@@ -221,7 +224,8 @@
                             <div class="photo-grid">
                               <% beforePhotos.forEach(photo => { %>
                                 <figure class="photo-card">
-                                  <a href="<%= photo.dataUrl %>" target="_blank" rel="noopener"><img src="<%= photo.dataUrl %>" alt="Vorher-Foto"></a>
+                                  <a href="<%= photoUrl(a, photo) %>" target="_blank" rel="noopener"><img src="<%= photoUrl(a, photo) %>" alt="Vorher-Foto"></a>
+                                  <a class="photo-download-link" href="<%= photoDownloadUrl(a, photo) %>">Foto herunterladen</a>
                                   <figcaption><%= photoTitle(photo) %></figcaption>
                                   <% if (permissions && permissions.canDeleteRequests) { %>
                                     <form action="/admin/photos/<%= a.id %>/before/<%= photo.id %>/delete" method="POST" onsubmit="return confirm('Dieses Vorher-Foto wirklich löschen?');">
@@ -250,7 +254,8 @@
                             <div class="photo-grid">
                               <% afterPhotos.forEach(photo => { %>
                                 <figure class="photo-card">
-                                  <a href="<%= photo.dataUrl %>" target="_blank" rel="noopener"><img src="<%= photo.dataUrl %>" alt="Nachher-Foto"></a>
+                                  <a href="<%= photoUrl(a, photo) %>" target="_blank" rel="noopener"><img src="<%= photoUrl(a, photo) %>" alt="Nachher-Foto"></a>
+                                  <a class="photo-download-link" href="<%= photoDownloadUrl(a, photo) %>">Foto herunterladen</a>
                                   <figcaption><%= photoTitle(photo) %></figcaption>
                                   <% if (permissions && permissions.canDeleteRequests) { %>
                                     <form action="/admin/photos/<%= a.id %>/after/<%= photo.id %>/delete" method="POST" onsubmit="return confirm('Dieses Nachher-Foto wirklich löschen?');">

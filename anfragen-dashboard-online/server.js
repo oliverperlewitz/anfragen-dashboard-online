@@ -66,6 +66,39 @@ function filesToPhotoObjects(files = [], uploadedBy = 'System', type = 'photo') 
   }));
 }
 
+
+function photoToBuffer(photo) {
+  if (!photo || !photo.dataUrl) return null;
+  const match = String(photo.dataUrl).match(/^data:([^;]+);base64,(.+)$/s);
+  if (!match) return null;
+
+  const mimeType = photo.mimeType || match[1] || 'application/octet-stream';
+  if (!ALLOWED_IMAGE_TYPES.includes(mimeType)) return null;
+
+  return {
+    mimeType,
+    buffer: Buffer.from(match[2], 'base64'),
+    fileName: sanitizeFileName(photo.originalName || `foto-${photo.id || Date.now()}`)
+  };
+}
+
+function findPhotoInAnfrage(anfrage, photoId) {
+  if (!anfrage || !photoId) return null;
+  const collections = [
+    { key: 'customerPhotos', label: 'Kundenfoto' },
+    { key: 'beforePhotos', label: 'Vorher-Foto' },
+    { key: 'afterPhotos', label: 'Nachher-Foto' }
+  ];
+
+  for (const collection of collections) {
+    const photos = Array.isArray(anfrage[collection.key]) ? anfrage[collection.key] : [];
+    const photo = photos.find(item => item.id === photoId);
+    if (photo) return { photo, collection: collection.key, label: collection.label };
+  }
+
+  return null;
+}
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -1313,6 +1346,37 @@ app.post('/admin/note/:id', requireLogin, requireRole('owner', 'admin', 'mitarbe
   }
 
   res.redirect('/admin#request-' + encodeURIComponent(req.params.id));
+});
+
+
+app.get('/admin/photo/:id/:photoId', requireLogin, async (req, res) => {
+  const anfragen = await readAnfragen();
+  const anfrage = anfragen.find(a => a.id === req.params.id);
+  const found = findPhotoInAnfrage(anfrage, req.params.photoId);
+  const file = photoToBuffer(found?.photo);
+
+  if (!file) return res.status(404).send('Foto wurde nicht gefunden.');
+
+  res.setHeader('Content-Type', file.mimeType);
+  res.setHeader('Content-Length', file.buffer.length);
+  res.setHeader('Cache-Control', 'private, max-age=300');
+  res.setHeader('Content-Disposition', `inline; filename="${file.fileName.replace(/"/g, '')}"`);
+  return res.send(file.buffer);
+});
+
+app.get('/admin/photo/:id/:photoId/download', requireLogin, async (req, res) => {
+  const anfragen = await readAnfragen();
+  const anfrage = anfragen.find(a => a.id === req.params.id);
+  const found = findPhotoInAnfrage(anfrage, req.params.photoId);
+  const file = photoToBuffer(found?.photo);
+
+  if (!file) return res.status(404).send('Foto wurde nicht gefunden.');
+
+  res.setHeader('Content-Type', file.mimeType);
+  res.setHeader('Content-Length', file.buffer.length);
+  res.setHeader('Cache-Control', 'private, max-age=300');
+  res.setHeader('Content-Disposition', `attachment; filename="${file.fileName.replace(/"/g, '')}"`);
+  return res.send(file.buffer);
 });
 
 app.post('/admin/photos/:id/:type', requireLogin, requireRole('owner', 'admin', 'mitarbeiter'), verifyCsrf, handleUpload(upload.array('workPhotos', 8)), async (req, res) => {

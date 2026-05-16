@@ -3036,3 +3036,32 @@ pre { white-space: pre-wrap; margin: 0; font-family: inherit; color: var(--muted
 @media (max-width: 640px) {
   .overview-home-grid { grid-template-columns: 1fr; }
 }
+
+
+/* Navigation-Fix: Übersichtskarten und Sidebar zuverlässig klickbar */
+.overview-home-card,
+.sidebar-link,
+.sidebar-subnav a {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+[data-admin-page][hidden] {
+  display: none !important;
+}
+
+[data-admin-page].is-visible-admin-page {
+  display: block;
+}
+
+.overview-home-grid.is-visible-admin-page,
+.department-overview.is-visible-admin-page,
+.department-stack.is-visible-admin-page {
+  display: grid;
+}
+
+.admin-toolbar-panel.is-visible-admin-page,
+.admin-panel.is-visible-admin-page,
+.admin-hero-panel.is-visible-admin-page {
+  display: block;
+}

@@ -1329,6 +1329,103 @@
       window.GRÜNWERK_SHOW_ADMIN_PAGE = showAdminPage;
     })();
   </script>
+
+
+  <script>
+    // Notfall-Fix: robuste Seiten-Navigation im Admin-Dashboard.
+    // Diese Logik läuft zuletzt und verhindert, dass alte Scroll-/Hash-Skripte die Bereiche wieder verstecken.
+    (function () {
+      function ready(fn) {
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
+        else fn();
+      }
+
+      ready(function () {
+        const securitySubPages = new Set(['backups', 'aktivitaetsprotokoll', 'login-historie', 'geloeschte-anfragen']);
+        const mainPages = new Set(['uebersicht', 'anfragen', 'kalender', 'emails', 'sicherheit']);
+
+        function clean(value) {
+          return String(value || '').replace(/^#/, '').trim() || 'uebersicht';
+        }
+
+        function pageFor(target) {
+          const t = clean(target);
+          if (securitySubPages.has(t) || t === 'sicherheit') return 'sicherheit';
+          if (t === 'general-emails') return 'emails';
+          if (t.startsWith('dep-') || t.startsWith('request-')) return 'anfragen';
+          if (mainPages.has(t)) return t;
+          return 'uebersicht';
+        }
+
+        function setActiveNav(page, target) {
+          document.querySelectorAll('[data-nav-page]').forEach((link) => {
+            const active = link.dataset.navPage === page;
+            link.classList.toggle('active', active);
+            const group = link.closest('[data-security-nav]');
+            if (group) group.classList.toggle('active', page === 'sicherheit');
+          });
+
+          document.querySelectorAll('.sidebar-subnav a').forEach((link) => {
+            link.classList.toggle('active', clean(link.getAttribute('href')) === clean(target));
+          });
+        }
+
+        function showPage(targetValue, shouldScroll) {
+          const target = clean(targetValue || window.location.hash);
+          const page = pageFor(target);
+          const sections = Array.from(document.querySelectorAll('[data-admin-page]'));
+
+          sections.forEach((section) => {
+            let visible = section.dataset.adminPage === page;
+
+            if (page === 'sicherheit') {
+              if (securitySubPages.has(target)) {
+                visible = section.id === target;
+              } else {
+                visible = section.id === 'sicherheit';
+              }
+            }
+
+            section.hidden = !visible;
+            section.classList.toggle('is-visible-admin-page', visible);
+          });
+
+          setActiveNav(page, target);
+          document.body.classList.remove('sidebar-open');
+
+          if (shouldScroll) {
+            const focus = document.getElementById(target);
+            if (focus && !focus.hidden) {
+              setTimeout(() => focus.scrollIntoView({ behavior: 'smooth', block: 'start' }), 20);
+            } else {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+          }
+        }
+
+        document.addEventListener('click', function (event) {
+          const link = event.target.closest('a[href^="#"]');
+          if (!link) return;
+
+          const target = clean(link.getAttribute('href'));
+          const page = pageFor(target);
+          if (!mainPages.has(page)) return;
+
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          history.pushState(null, '', '#' + target);
+          showPage(target, true);
+        }, true);
+
+        window.addEventListener('popstate', () => showPage(window.location.hash || '#uebersicht', true));
+        window.addEventListener('hashchange', () => showPage(window.location.hash || '#uebersicht', true));
+
+        showPage(window.location.hash || '#uebersicht', false);
+        window.GRUENWERK_ADMIN_SHOW_PAGE = showPage;
+      });
+    })();
+  </script>
+
   <script src="/inline-edit.js" defer></script>
 </body>
 </html>

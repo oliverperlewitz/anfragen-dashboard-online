@@ -52,8 +52,11 @@
     <div class="admin-header-actions">
       <div class="admin-user-chip" title="Eingeloggt als <%= username || 'Admin' %>">
         <span class="admin-user-dot">👋</span>
-        <span>Hallo <strong><%= username || 'Admin' %></strong></span>
+        <span>Hallo <strong><%= username || 'Admin' %></strong> · <em><%= roleLabel || 'Admin' %></em></span>
       </div>
+      <% if (permissions && permissions.canManageUsers) { %>
+        <a class="button secondary" href="/admin/users">User verwalten</a>
+      <% } %>
       <a class="button secondary" href="/" target="_blank">Website ansehen</a>
       <form action="/logout" method="POST"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="danger" type="submit">Ausloggen</button></form>
     </div>
@@ -189,10 +192,12 @@
                         </select>
                         <button type="submit">Status ändern</button>
                       </form>
-                      <form action="/admin/delete/<%= a.id %>" method="POST" onsubmit="return confirm('Diese Anfrage wirklich löschen?');">
-                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                        <button class="danger ghost-danger" type="submit">Löschen</button>
-                      </form>
+                      <% if (permissions && permissions.canDeleteRequests) { %>
+                        <form action="/admin/delete/<%= a.id %>" method="POST" onsubmit="return confirm('Diese Anfrage wirklich löschen?');">
+                          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                          <button class="danger ghost-danger" type="submit">Löschen</button>
+                        </form>
+                      <% } %>
                     </div>
                   </article>
                 <% }) %>
@@ -204,6 +209,7 @@
     <% } %>
 
 
+    <% if (permissions && permissions.canDownloadBackups) { %>
     <section class="admin-panel backup-panel">
       <div class="department-section-head compact-head">
         <div>
@@ -236,9 +242,10 @@
         </div>
       <% } %>
     </section>
+    <% } %>
 
 
-    <% if (activityLog && activityLog.length) { %>
+    <% if (permissions && permissions.canViewActivity && activityLog && activityLog.length) { %>
       <section class="admin-panel activity-panel">
         <div class="department-section-head compact-head">
           <div>

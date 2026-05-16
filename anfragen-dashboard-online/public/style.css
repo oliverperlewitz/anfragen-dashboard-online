@@ -857,3 +857,114 @@ pre { white-space: pre-wrap; margin: 0; font-family: inherit; color: var(--muted
     text-align: center;
   }
 }
+
+/* User-Verwaltung / Rollen */
+.admin-user-chip em {
+  font-style: normal;
+  color: #7c8d72;
+  font-weight: 900;
+}
+.user-hero-panel {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+.role-legend {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(130px, 1fr));
+  gap: 12px;
+}
+.role-legend div {
+  background: rgba(255,255,255,.72);
+  border: 1px solid rgba(36,77,52,.10);
+  border-radius: 22px;
+  padding: 16px;
+  box-shadow: 0 10px 24px rgba(25,50,34,.06);
+}
+.role-legend strong,
+.role-legend span {
+  display: block;
+}
+.role-legend strong {
+  color: var(--green);
+  font-size: 18px;
+}
+.role-legend span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 13px;
+}
+.user-create-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr 220px auto;
+  gap: 14px;
+  align-items: end;
+}
+.user-create-form label,
+.inline-user-form,
+.password-reset-form {
+  display: grid;
+  gap: 7px;
+}
+.user-create-form label span {
+  font-weight: 900;
+  color: var(--green);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+.user-table-wrap {
+  overflow-x: auto;
+}
+.user-table {
+  min-width: 1100px;
+}
+.user-table td strong,
+.user-table td small {
+  display: block;
+}
+.user-table td small {
+  margin-top: 4px;
+  color: #7c8d72;
+  font-weight: 900;
+}
+.inline-user-form {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+.user-status {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 9px 13px;
+  font-weight: 900;
+  font-size: 13px;
+}
+.user-status.active {
+  background: #dcfce7;
+  color: #166534;
+}
+.user-status.inactive {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.inactive-user {
+  opacity: .62;
+}
+.user-actions-grid {
+  display: grid;
+  gap: 10px;
+}
+.password-reset-form {
+  grid-template-columns: minmax(180px, 1fr) auto;
+  align-items: center;
+}
+.error-panel h2 {
+  color: #991b1b;
+}
+@media (max-width: 980px) {
+  .user-hero-panel,
+  .user-create-form,
+  .role-legend {
+    grid-template-columns: 1fr;
+  }
+}

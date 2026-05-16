@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User-Verwaltung | GrünWerk Admin</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="admin-body admin-pro-body">
+  <header class="admin-shell-header">
+    <a class="brand" href="/admin" aria-label="Zurück zum Dashboard">
+      <span class="brand-icon">☘</span>
+      <span>
+        <strong>GrünWerk</strong>
+        <small>User-Verwaltung</small>
+      </span>
+    </a>
+    <div class="admin-header-actions">
+      <div class="admin-user-chip">
+        <span class="admin-user-dot">👋</span>
+        <span>Hallo <strong><%= username || 'Admin' %></strong> · Owner</span>
+      </div>
+      <a class="button secondary" href="/admin">Zurück zum Dashboard</a>
+      <form action="/logout" method="POST">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button class="danger" type="submit">Ausloggen</button>
+      </form>
+    </div>
+  </header>
+
+  <main class="admin-pro-main">
+    <section class="admin-hero-panel user-hero-panel">
+      <div>
+        <p class="admin-kicker">Sicherheit & Rechte</p>
+        <h1>User verwalten</h1>
+        <p class="admin-subline">Lege neue Admin-Zugänge an und steuere, wer welche Rechte im Dashboard hat.</p>
+      </div>
+      <div class="role-legend">
+        <div><strong>Owner</strong><span>alles erlaubt</span></div>
+        <div><strong>Admin</strong><span>Anfragen bearbeiten</span></div>
+        <div><strong>Mitarbeiter</strong><span>Status ändern</span></div>
+      </div>
+    </section>
+
+    <% if (!postgresEnabled) { %>
+      <section class="admin-panel error-panel">
+        <h2>User-Verwaltung braucht PostgreSQL</h2>
+        <p>Online mit DATABASE_URL funktioniert dieser Bereich. Lokal ohne Datenbank nutzt die Website weiterhin deine .env-Admins.</p>
+      </section>
+    <% } %>
+
+    <% if (message) { %>
+      <div class="success"><%= message %></div>
+    <% } %>
+    <% if (error) { %>
+      <div class="error"><%= error %></div>
+    <% } %>
+
+    <section class="admin-panel user-create-panel">
+      <div class="department-section-head compact-head">
+        <div>
+          <p class="admin-kicker">Neuer Zugang</p>
+          <h2>User hinzufügen</h2>
+          <p>Das Passwort wird automatisch sicher mit bcrypt gehasht und nicht im Klartext gespeichert.</p>
+        </div>
+      </div>
+
+      <form class="user-create-form" action="/admin/users/create" method="POST">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label>
+          <span>Benutzername</span>
+          <input name="username" placeholder="z. B. Frederik" required minlength="2" maxlength="40">
+        </label>
+        <label>
+          <span>Passwort</span>
+          <input name="password" type="password" placeholder="mind. 8 Zeichen" required minlength="8">
+        </label>
+        <label>
+          <span>Rolle</span>
+          <select name="role" required>
+            <option value="mitarbeiter">Mitarbeiter</option>
+            <option value="admin">Admin</option>
+            <option value="owner">Owner</option>
+          </select>
+        </label>
+        <button type="submit">User erstellen</button>
+      </form>
+    </section>
+
+    <section class="admin-panel user-list-panel">
+      <div class="department-section-head compact-head">
+        <div>
+          <p class="admin-kicker">Bestehende Zugänge</p>
+          <h2>Aktive und deaktivierte User</h2>
+          <p>Mindestens ein aktiver Owner muss immer bestehen bleiben.</p>
+        </div>
+      </div>
+
+      <div class="user-table-wrap">
+        <table class="user-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Rolle</th>
+              <th>Status</th>
+              <th>Erstellt</th>
+              <th>Aktionen</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% users.forEach(user => { %>
+              <tr class="<%= user.active ? '' : 'inactive-user' %>">
+                <td>
+                  <strong><%= user.username %></strong>
+                  <% if (user.username === username) { %><small>Du</small><% } %>
+                </td>
+                <td>
+                  <form class="inline-user-form" action="/admin/users/<%= user.id %>/role" method="POST">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <select name="role">
+                      <option value="owner" <%= user.role === 'owner' ? 'selected' : '' %>>Owner</option>
+                      <option value="admin" <%= user.role === 'admin' ? 'selected' : '' %>>Admin</option>
+                      <option value="mitarbeiter" <%= user.role === 'mitarbeiter' ? 'selected' : '' %>>Mitarbeiter</option>
+                    </select>
+                    <button class="button secondary" type="submit">Speichern</button>
+                  </form>
+                </td>
+                <td>
+                  <span class="user-status <%= user.active ? 'active' : 'inactive' %>"><%= user.active ? 'Aktiv' : 'Deaktiviert' %></span>
+                </td>
+                <td><%= user.createdLabel %></td>
+                <td>
+                  <div class="user-actions-grid">
+                    <form action="/admin/users/<%= user.id %>/password" method="POST" class="password-reset-form">
+                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <input name="password" type="password" placeholder="Neues Passwort" minlength="8" required>
+                      <button class="button secondary" type="submit">Passwort ändern</button>
+                    </form>
+                    <form action="/admin/users/<%= user.id %>/toggle" method="POST">
+                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <button class="button secondary" type="submit"><%= user.active ? 'Deaktivieren' : 'Aktivieren' %></button>
+                    </form>
+                    <% if (user.username !== username) { %>
+                      <form action="/admin/users/<%= user.id %>/delete" method="POST" onsubmit="return confirm('Diesen User wirklich löschen?');">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                        <button class="danger ghost-danger" type="submit">Löschen</button>
+                      </form>
+                    <% } %>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

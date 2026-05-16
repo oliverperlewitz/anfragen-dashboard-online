@@ -74,6 +74,20 @@ async function initDatabase() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_anfragen_created_at ON anfragen (created_at DESC)');
   await pool.query("CREATE INDEX IF NOT EXISTS idx_anfragen_status ON anfragen ((data->>'status'))");
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS admin_users (
+      id TEXT PRIMARY KEY,
+      username TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'admin',
+      active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_by TEXT
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_admin_users_username ON admin_users (username)');
+  await bootstrapAdminUsers();
+
   const countResult = await pool.query('SELECT COUNT(*)::int AS count FROM anfragen');
   const tableIsEmpty = Number(countResult.rows[0]?.count || 0) === 0;
   const localAnfragen = readAnfragenFromFile();
@@ -88,6 +102,168 @@ async function ensureDatabase() {
   if (!pool) return;
   if (!dbReadyPromise) dbReadyPromise = initDatabase();
   return dbReadyPromise;
+}
+
+const ADMIN_ROLES = ['owner', 'admin', 'mitarbeiter'];
+
+function normalizeRole(role) {
+  const normalized = String(role || 'admin').toLowerCase().trim();
+  return ADMIN_ROLES.includes(normalized) ? normalized : 'admin';
+}
+
+function roleLabel(role) {
+  if (role === 'owner') return 'Owner';
+  if (role === 'admin') return 'Admin';
+  if (role === 'mitarbeiter') return 'Mitarbeiter';
+  return 'Admin';
+}
+
+function parseAdminPairsFromEnv() {
+  const items = [];
+  const add = (username, passwordOrHash, role = 'admin') => {
+    const cleanUsername = cleanText(username, 80);
+    if (!cleanUsername || !passwordOrHash) return;
+    if (items.some(item => item.username === cleanUsername)) return;
+    items.push({ username: cleanUsername, passwordOrHash, role: normalizeRole(role) });
+  };
+
+  const parsePairs = (text, defaultRole) => {
+    String(text || '').split(',').forEach(pair => {
+      const admin = splitAdminPair(pair.trim());
+      if (admin) add(admin.username, admin.passwordOrHash, defaultRole);
+    });
+  };
+
+  parsePairs(process.env.ADMINS_HASHED, 'admin');
+  parsePairs(process.env.ADMINS, 'admin');
+
+  if (process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD_HASH) add(process.env.ADMIN_USERNAME, process.env.ADMIN_PASSWORD_HASH, 'owner');
+  if (process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD) add(process.env.ADMIN_USERNAME, process.env.ADMIN_PASSWORD, 'owner');
+
+  if (items.length > 0 && !items.some(item => item.role === 'owner')) items[0].role = 'owner';
+  return items;
+}
+
+async function hashPasswordIfNeeded(passwordOrHash) {
+  const value = String(passwordOrHash || '');
+  const looksHashed = value.startsWith('$2a$') || value.startsWith('$2b$') || value.startsWith('$2y$');
+  if (looksHashed) return value;
+  return bcrypt.hash(value, 12);
+}
+
+async function bootstrapAdminUsers() {
+  if (!pool) return;
+  const countResult = await pool.query('SELECT COUNT(*)::int AS count FROM admin_users');
+  if (Number(countResult.rows[0]?.count || 0) > 0) return;
+
+  const admins = parseAdminPairsFromEnv();
+  if (admins.length === 0) {
+    console.warn('[ADMIN] Keine Admins in Environment gefunden. Lege mindestens ADMIN_USERNAME/ADMIN_PASSWORD oder ADMINS an.');
+    return;
+  }
+
+  for (const admin of admins) {
+    const id = crypto.randomUUID();
+    const passwordHash = await hashPasswordIfNeeded(admin.passwordOrHash);
+    await pool.query(
+      `INSERT INTO admin_users (id, username, password_hash, role, active, created_by)
+       VALUES ($1, $2, $3, $4, true, 'environment-bootstrap')
+       ON CONFLICT (username) DO NOTHING`,
+      [id, admin.username, passwordHash, normalizeRole(admin.role)]
+    );
+  }
+
+  console.log(`[ADMIN] ${admins.length} Admin-Benutzer aus Environment in PostgreSQL übernommen.`);
+}
+
+async function getDbAdminByUsername(username) {
+  if (!pool) return null;
+  await ensureDatabase();
+  const result = await pool.query(
+    'SELECT id, username, password_hash, role, active, created_at FROM admin_users WHERE username = $1 LIMIT 1',
+    [username]
+  );
+  return result.rows[0] || null;
+}
+
+async function authenticateAdmin(username, password) {
+  if (pool) {
+    const admin = await getDbAdminByUsername(username);
+    if (!admin || !admin.active) return null;
+    const ok = await passwordMatches(password, admin.password_hash);
+    if (!ok) return null;
+    return { id: admin.id, username: admin.username, role: normalizeRole(admin.role) };
+  }
+
+  if (await isAdminLoginCorrect(username, password)) {
+    return { id: username, username, role: 'owner' };
+  }
+
+  return null;
+}
+
+async function listAdminUsers() {
+  if (!pool) return [];
+  await ensureDatabase();
+  const result = await pool.query(
+    `SELECT id, username, role, active, created_at, created_by
+     FROM admin_users
+     ORDER BY created_at ASC, username ASC`
+  );
+
+  return result.rows.map(row => ({
+    ...row,
+    role: normalizeRole(row.role),
+    roleLabel: roleLabel(normalizeRole(row.role)),
+    createdLabel: row.created_at ? formatBerlinDateTime(row.created_at) : '-'
+  }));
+}
+
+async function countActiveOwners(excludeId = null) {
+  if (!pool) return 0;
+  const result = await pool.query(
+    `SELECT COUNT(*)::int AS count FROM admin_users
+     WHERE role = 'owner' AND active = true AND ($1::text IS NULL OR id <> $1)`,
+    [excludeId]
+  );
+  return Number(result.rows[0]?.count || 0);
+}
+
+async function createAdminUser({ username, password, role, createdBy }) {
+  if (!pool) throw new Error('User-Verwaltung braucht PostgreSQL.');
+  const cleanUsername = cleanText(username, 80);
+  if (!/^[a-zA-Z0-9_.-]{2,40}$/.test(cleanUsername)) throw new Error('Benutzername darf nur Buchstaben, Zahlen, Punkt, Unterstrich und Bindestrich enthalten.');
+  if (String(password || '').length < 8) throw new Error('Passwort muss mindestens 8 Zeichen lang sein.');
+
+  const id = crypto.randomUUID();
+  const passwordHash = await bcrypt.hash(String(password), 12);
+  await pool.query(
+    `INSERT INTO admin_users (id, username, password_hash, role, active, created_by)
+     VALUES ($1, $2, $3, $4, true, $5)`,
+    [id, cleanUsername, passwordHash, normalizeRole(role), createdBy || null]
+  );
+}
+
+function getPermissions(role) {
+  const cleanRole = normalizeRole(role);
+  return {
+    role: cleanRole,
+    roleLabel: roleLabel(cleanRole),
+    canManageUsers: cleanRole === 'owner',
+    canDeleteRequests: cleanRole === 'owner' || cleanRole === 'admin',
+    canDownloadBackups: cleanRole === 'owner' || cleanRole === 'admin',
+    canViewActivity: cleanRole === 'owner',
+    canChangeStatus: ['owner', 'admin', 'mitarbeiter'].includes(cleanRole)
+  };
+}
+
+function requireRole(...roles) {
+  return (req, res, next) => {
+    const role = normalizeRole(req.session?.role);
+    if (roles.includes(role)) return next();
+    addActivity(req, 'permission_denied', { path: req.path, required: roles.join(','), role });
+    return res.status(403).send('Du hast für diese Aktion keine Berechtigung.');
+  };
 }
 
 function normalizeDbAnfrage(row) {
@@ -891,10 +1067,13 @@ app.post('/login', loginLimiter, async (req, res) => {
   const username = cleanText(req.body.username, 80);
   const password = String(req.body.password || '');
 
-  if (await isAdminLoginCorrect(username, password)) {
+  const admin = await authenticateAdmin(username, password);
+  if (admin) {
     req.session.loggedIn = true;
-    req.session.username = username;
-    addActivity(req, 'login_success', { username });
+    req.session.username = admin.username;
+    req.session.adminId = admin.id;
+    req.session.role = admin.role;
+    addActivity(req, 'login_success', { username: admin.username, role: admin.role });
     return res.redirect('/admin');
   }
 
@@ -923,17 +1102,21 @@ app.get('/admin', requireLogin, async (req, res) => {
       )
     : anfragen;
 
+  const permissions = getPermissions(req.session.role);
   res.render('admin', {
     anfragen: gefiltert,
     suche: req.query.suche || '',
     username: req.session.username || 'Admin',
+    userRole: permissions.role,
+    roleLabel: permissions.roleLabel,
+    permissions,
     csrfToken: createCsrfToken(req),
-    activityLog: readActivityLog(10),
-    backups: listBackups(20)
+    activityLog: permissions.canViewActivity ? readActivityLog(10) : [],
+    backups: permissions.canDownloadBackups ? listBackups(20) : []
   });
 });
 
-app.get('/admin/backups/:filename', requireLogin, (req, res) => {
+app.get('/admin/backups/:filename', requireLogin, requireRole('owner', 'admin'), (req, res) => {
   const backup = getSafeBackupPath(req.params.filename);
   if (!backup) return res.status(404).send('Backup wurde nicht gefunden.');
 
@@ -941,11 +1124,112 @@ app.get('/admin/backups/:filename', requireLogin, (req, res) => {
   res.download(backup.fullPath, backup.safeName);
 });
 
-app.get('/admin/activity-log/download', requireLogin, (req, res) => {
+app.get('/admin/activity-log/download', requireLogin, requireRole('owner'), (req, res) => {
   if (!fs.existsSync(ACTIVITY_LOG_FILE)) return res.status(404).send('Aktivitätsprotokoll wurde nicht gefunden.');
 
   addActivity(req, 'activity_log_downloaded');
   res.download(ACTIVITY_LOG_FILE, 'activity-log.json');
+});
+
+app.get('/admin/users', requireLogin, requireRole('owner'), async (req, res) => {
+  const message = req.query.message || '';
+  const error = req.query.error || '';
+  const users = await listAdminUsers();
+
+  res.render('users', {
+    users,
+    username: req.session.username || 'Admin',
+    userRole: req.session.role || 'admin',
+    csrfToken: createCsrfToken(req),
+    message,
+    error,
+    postgresEnabled: Boolean(pool)
+  });
+});
+
+app.post('/admin/users/create', requireLogin, requireRole('owner'), verifyCsrf, async (req, res) => {
+  try {
+    await createAdminUser({
+      username: req.body.username,
+      password: req.body.password,
+      role: req.body.role,
+      createdBy: req.session.username
+    });
+    addActivity(req, 'admin_user_created', { username: cleanText(req.body.username, 80), role: normalizeRole(req.body.role) });
+    res.redirect('/admin/users?message=Benutzer wurde erstellt.');
+  } catch (error) {
+    res.redirect('/admin/users?error=' + encodeURIComponent(error.message || 'Benutzer konnte nicht erstellt werden.'));
+  }
+});
+
+app.post('/admin/users/:id/role', requireLogin, requireRole('owner'), verifyCsrf, async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const role = normalizeRole(req.body.role);
+    const users = await listAdminUsers();
+    const target = users.find(user => user.id === id);
+    if (!target) throw new Error('Benutzer wurde nicht gefunden.');
+    if (target.id === req.session.adminId && role !== 'owner') throw new Error('Du kannst dir selbst nicht die Owner-Rechte entfernen.');
+    if (target.role === 'owner' && role !== 'owner' && await countActiveOwners(target.id) < 1) throw new Error('Es muss mindestens ein aktiver Owner bleiben.');
+
+    await pool.query('UPDATE admin_users SET role = $1 WHERE id = $2', [role, id]);
+    addActivity(req, 'admin_user_role_changed', { username: target.username, oldRole: target.role, newRole: role });
+    res.redirect('/admin/users?message=Rolle wurde geändert.');
+  } catch (error) {
+    res.redirect('/admin/users?error=' + encodeURIComponent(error.message || 'Rolle konnte nicht geändert werden.'));
+  }
+});
+
+app.post('/admin/users/:id/password', requireLogin, requireRole('owner'), verifyCsrf, async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const password = String(req.body.password || '');
+    if (password.length < 8) throw new Error('Passwort muss mindestens 8 Zeichen lang sein.');
+    const users = await listAdminUsers();
+    const target = users.find(user => user.id === id);
+    if (!target) throw new Error('Benutzer wurde nicht gefunden.');
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    await pool.query('UPDATE admin_users SET password_hash = $1 WHERE id = $2', [passwordHash, id]);
+    addActivity(req, 'admin_user_password_changed', { username: target.username });
+    res.redirect('/admin/users?message=Passwort wurde geändert.');
+  } catch (error) {
+    res.redirect('/admin/users?error=' + encodeURIComponent(error.message || 'Passwort konnte nicht geändert werden.'));
+  }
+});
+
+app.post('/admin/users/:id/toggle', requireLogin, requireRole('owner'), verifyCsrf, async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const users = await listAdminUsers();
+    const target = users.find(user => user.id === id);
+    if (!target) throw new Error('Benutzer wurde nicht gefunden.');
+    if (target.id === req.session.adminId) throw new Error('Du kannst dich selbst nicht deaktivieren.');
+    if (target.role === 'owner' && target.active && await countActiveOwners(target.id) < 1) throw new Error('Es muss mindestens ein aktiver Owner bleiben.');
+
+    await pool.query('UPDATE admin_users SET active = NOT active WHERE id = $1', [id]);
+    addActivity(req, 'admin_user_toggled', { username: target.username, wasActive: target.active });
+    res.redirect('/admin/users?message=Benutzerstatus wurde geändert.');
+  } catch (error) {
+    res.redirect('/admin/users?error=' + encodeURIComponent(error.message || 'Benutzerstatus konnte nicht geändert werden.'));
+  }
+});
+
+app.post('/admin/users/:id/delete', requireLogin, requireRole('owner'), verifyCsrf, async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const users = await listAdminUsers();
+    const target = users.find(user => user.id === id);
+    if (!target) throw new Error('Benutzer wurde nicht gefunden.');
+    if (target.id === req.session.adminId) throw new Error('Du kannst dich selbst nicht löschen.');
+    if (target.role === 'owner' && await countActiveOwners(target.id) < 1) throw new Error('Es muss mindestens ein aktiver Owner bleiben.');
+
+    await pool.query('DELETE FROM admin_users WHERE id = $1', [id]);
+    addActivity(req, 'admin_user_deleted', { username: target.username, role: target.role });
+    res.redirect('/admin/users?message=Benutzer wurde gelöscht.');
+  } catch (error) {
+    res.redirect('/admin/users?error=' + encodeURIComponent(error.message || 'Benutzer konnte nicht gelöscht werden.'));
+  }
 });
 
 app.post('/admin/status/:id', requireLogin, verifyCsrf, async (req, res) => {
@@ -964,7 +1248,7 @@ app.post('/admin/status/:id', requireLogin, verifyCsrf, async (req, res) => {
   res.redirect('/admin');
 });
 
-app.post('/admin/delete/:id', requireLogin, verifyCsrf, async (req, res) => {
+app.post('/admin/delete/:id', requireLogin, requireRole('owner', 'admin'), verifyCsrf, async (req, res) => {
   const before = await readAnfragen();
   const deleted = before.find(a => a.id === req.params.id);
   const anfragen = before.filter(a => a.id !== req.params.id);
@@ -977,6 +1261,7 @@ app.post('/admin/delete/:id', requireLogin, verifyCsrf, async (req, res) => {
 ensureDatabase()
   .then(() => {
     console.log(`[DB] Speicher: ${usePostgres ? 'PostgreSQL' : 'JSON-Datei'}`);
+    console.log(`[ADMIN] User-Verwaltung: ${usePostgres ? 'PostgreSQL aktiv' : 'nur Environment-Fallback'}`);
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server läuft auf Port ${PORT}`);
   console.log(`Admin-Dashboard: /admin`);

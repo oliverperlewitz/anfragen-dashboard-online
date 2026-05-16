@@ -951,26 +951,85 @@
     });
 
 
-    document.querySelectorAll('.inline-edit-pencil').forEach((button) => {
-      button.addEventListener('click', () => {
-        const form = document.getElementById(button.dataset.editForm);
-        if (!form) return;
-        const field = button.dataset.editField;
-        const input = form.querySelector(`[name="${field}"]`);
-        if (!input) return;
-        const label = button.dataset.editLabel || field;
-        const currentValue = input.value || button.dataset.editValue || '';
-        let nextValue;
-        if (button.dataset.editMultiline === 'true') {
-          nextValue = prompt(`${label} bearbeiten:`, currentValue);
-        } else {
-          nextValue = prompt(`${label} bearbeiten:`, currentValue);
+    function getInlineEditModal() {
+      let modal = document.getElementById('inline-edit-modal');
+      if (modal) return modal;
+
+      modal = document.createElement('div');
+      modal.id = 'inline-edit-modal';
+      modal.className = 'inline-edit-modal';
+      modal.innerHTML = `
+        <div class="inline-edit-modal-backdrop" data-inline-edit-close="1"></div>
+        <div class="inline-edit-modal-card" role="dialog" aria-modal="true" aria-labelledby="inline-edit-title">
+          <button type="button" class="inline-edit-modal-close" data-inline-edit-close="1" aria-label="Schließen">×</button>
+          <p class="admin-kicker">Auftragsfeld bearbeiten</p>
+          <h3 id="inline-edit-title">Feld bearbeiten</h3>
+          <label class="inline-edit-modal-label" for="inline-edit-value">Neuer Wert</label>
+          <textarea id="inline-edit-value" class="inline-edit-modal-input" rows="4"></textarea>
+          <div class="inline-edit-modal-actions">
+            <button type="button" class="secondary inline-edit-cancel" data-inline-edit-close="1">Abbrechen</button>
+            <button type="button" class="inline-edit-save">Speichern</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      modal.addEventListener('click', (event) => {
+        if (event.target.matches('[data-inline-edit-close]')) {
+          modal.classList.remove('is-open');
         }
-        if (nextValue === null) return;
-        input.value = nextValue.trim();
-        form.submit();
       });
-    });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') modal.classList.remove('is-open');
+      });
+
+      return modal;
+    }
+
+    document.addEventListener('click', (event) => {
+      const button = event.target.closest('.inline-edit-pencil');
+      if (!button) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const form = document.getElementById(button.dataset.editForm);
+      if (!form) {
+        alert('Bearbeitungsformular wurde nicht gefunden. Bitte Seite neu laden.');
+        return;
+      }
+
+      const field = button.dataset.editField;
+      const input = form.querySelector(`[name="${CSS.escape(field)}"]`);
+      if (!input) {
+        alert('Dieses Feld konnte nicht gefunden werden.');
+        return;
+      }
+
+      const label = button.dataset.editLabel || field;
+      const modal = getInlineEditModal();
+      const title = modal.querySelector('#inline-edit-title');
+      const textarea = modal.querySelector('#inline-edit-value');
+      const saveButton = modal.querySelector('.inline-edit-save');
+      const currentValue = input.value || button.dataset.editValue || '';
+
+      title.textContent = `${label} bearbeiten`;
+      textarea.value = currentValue;
+      textarea.rows = button.dataset.editMultiline === 'true' ? 7 : 3;
+      modal.classList.add('is-open');
+      setTimeout(() => textarea.focus(), 20);
+
+      saveButton.onclick = () => {
+        input.value = textarea.value.trim();
+        modal.classList.remove('is-open');
+        if (typeof form.requestSubmit === 'function') {
+          form.requestSubmit();
+        } else {
+          form.submit();
+        }
+      };
+    }, true);
 
 
     document.querySelectorAll('[data-drag-request-id]').forEach((item) => {

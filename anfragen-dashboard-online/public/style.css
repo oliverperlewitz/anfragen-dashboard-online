@@ -2413,3 +2413,83 @@ pre { white-space: pre-wrap; margin: 0; font-family: inherit; color: var(--muted
   align-items: flex-start;
   gap: 0.75rem;
 }
+
+
+/* Modal-Fix fuer Stift-Bearbeitung */
+.inline-edit-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+.inline-edit-modal.is-open { display: flex; }
+.inline-edit-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(14, 37, 24, 0.45);
+  backdrop-filter: blur(5px);
+}
+.inline-edit-modal-card {
+  position: relative;
+  width: min(560px, 100%);
+  border: 1px solid rgba(22, 78, 48, 0.14);
+  border-radius: 1.5rem;
+  background: #fffdf7;
+  box-shadow: 0 28px 80px rgba(15, 44, 27, 0.28);
+  padding: 1.25rem;
+}
+.inline-edit-modal-card h3 {
+  margin: 0 0 1rem;
+  color: #143820;
+}
+.inline-edit-modal-close {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.8rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  padding: 0;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+.inline-edit-modal-label {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-weight: 800;
+  color: #5f715e;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.inline-edit-modal-input {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid rgba(22, 78, 48, 0.18);
+  border-radius: 1rem;
+  padding: 0.9rem;
+  font: inherit;
+  color: #143820;
+  background: #ffffff;
+}
+.inline-edit-modal-input:focus {
+  outline: 3px solid rgba(34, 99, 61, 0.16);
+  border-color: rgba(34, 99, 61, 0.45);
+}
+.inline-edit-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+.inline-edit-modal-actions button {
+  min-width: 130px;
+}
+.inline-edit-pencil {
+  position: relative;
+  z-index: 5;
+}

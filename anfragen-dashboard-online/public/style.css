@@ -3082,3 +3082,51 @@ pre { white-space: pre-wrap; margin: 0; font-family: inherit; color: var(--muted
   text-decoration: underline;
   text-underline-offset: 4px;
 }
+
+/* Update: breitere Auftragskarten im Dashboard */
+.admin-pro-main,
+.admin-page-shell {
+  max-width: 1720px;
+}
+
+.department-request-grid {
+  grid-template-columns: repeat(auto-fit, minmax(420px, 560px));
+  justify-content: start;
+  align-items: start;
+  gap: 22px;
+}
+
+.admin-request-card {
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-card-grid,
+.data-list,
+.data-list.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.mini-box,
+.data-list > div {
+  min-width: 0;
+}
+
+.mini-box strong,
+.data-list strong {
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: auto;
+}
+
+@media (min-width: 1500px) {
+  .department-request-grid {
+    grid-template-columns: repeat(auto-fit, minmax(460px, 620px));
+  }
+}
+
+@media (max-width: 980px) {
+  .department-request-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -3038,30 +3038,34 @@ pre { white-space: pre-wrap; margin: 0; font-family: inherit; color: var(--muted
 }
 
 
-/* Navigation-Fix: Übersichtskarten und Sidebar zuverlässig klickbar */
-.overview-home-card,
-.sidebar-link,
-.sidebar-subnav a {
-  cursor: pointer;
-  pointer-events: auto;
+/* FINAL: robuste echte Seiten-Navigation */
+[data-admin-page][hidden] { display: none !important; }
+.sidebar-link.active,
+.sidebar-group.active > .sidebar-link {
+  background: #f7f7ef !important;
+  color: #15331f !important;
+  box-shadow: 0 14px 28px rgba(0,0,0,.14) !important;
 }
-
-[data-admin-page][hidden] {
-  display: none !important;
+.sidebar-subnav a.active {
+  color: #ffffff !important;
+  background: rgba(255,255,255,.13) !important;
+  border-radius: 12px !important;
 }
-
-[data-admin-page].is-visible-admin-page {
-  display: block;
-}
-
-.overview-home-grid.is-visible-admin-page,
-.department-overview.is-visible-admin-page,
-.department-stack.is-visible-admin-page {
-  display: grid;
-}
-
-.admin-toolbar-panel.is-visible-admin-page,
-.admin-panel.is-visible-admin-page,
-.admin-hero-panel.is-visible-admin-page {
-  display: block;
+@media (min-width: 981px) {
+  .admin-shell-header-compact {
+    position: fixed !important;
+    top: 0 !important;
+    left: 260px !important;
+    right: 0 !important;
+    width: auto !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    padding-right: 22px !important;
+    z-index: 30 !important;
+  }
+  .admin-shell-header-compact .admin-profile-menu {
+    margin-left: auto !important;
+    margin-right: 0 !important;
+  }
 }

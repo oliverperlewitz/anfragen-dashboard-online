@@ -1193,99 +1193,26 @@
       });
     });
 
-    const adminPages = Array.from(document.querySelectorAll('[data-admin-page]'));
-    const navLinks = Array.from(document.querySelectorAll('[data-nav-page]'));
-    const securityHashes = new Set(['sicherheit', 'backups', 'aktivitaetsprotokoll', 'login-historie', 'geloeschte-anfragen']);
-
-    function pageFromHash(hashValue) {
-      const hash = String(hashValue || '').replace('#', '') || 'uebersicht';
-      if (securityHashes.has(hash)) return 'sicherheit';
-      if (hash === 'general-emails') return 'emails';
-      if (hash.startsWith('dep-') || hash.startsWith('request-')) return 'anfragen';
-      if (['uebersicht', 'anfragen', 'kalender', 'emails'].includes(hash)) return hash;
-      return 'uebersicht';
-    }
-
-    function setActivePage(page, focusHash) {
-      adminPages.forEach((section) => {
-        section.hidden = section.dataset.adminPage !== page;
-      });
-
-      navLinks.forEach((link) => {
-        const isActive = link.dataset.navPage === page;
-        link.classList.toggle('active', isActive);
-        if (link.closest('[data-security-nav]')) {
-          link.closest('[data-security-nav]').classList.toggle('active', page === 'sicherheit');
-        }
-      });
-
-      document.body.classList.remove('sidebar-open');
-
-      if (focusHash) {
-        const target = document.getElementById(focusHash.replace('#', ''));
-        if (target && target.dataset.adminPage === page) {
-          setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
-        } else {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-      } else {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-    }
-
-    function applyPageFromHash() {
-      const hash = window.location.hash || '#uebersicht';
-      setActivePage(pageFromHash(hash), hash);
-    }
-
-    navLinks.forEach((link) => {
-      link.addEventListener('click', () => {
-        const page = link.dataset.navPage || pageFromHash(link.getAttribute('href'));
-        setActivePage(page, link.getAttribute('href'));
-      });
-    });
-
-    window.addEventListener('hashchange', applyPageFromHash);
-    applyPageFromHash();
-  </script>
-
-  <script>
+    // Dashboard-Seiten-Navigation: zeigt immer genau eine Hauptseite.
+    // Wichtig: Server-Funktionen bleiben unverändert; es wird nur die Ansicht umgeschaltet.
     (function () {
-      const securitySubPages = new Set(['backups', 'aktivitaetsprotokoll', 'login-historie', 'geloeschte-anfragen']);
-      const primaryPages = new Set(['uebersicht', 'anfragen', 'kalender', 'emails', 'sicherheit']);
+      const mainPages = new Set(['uebersicht', 'anfragen', 'kalender', 'emails', 'sicherheit']);
+      const securityPages = new Set(['backups', 'aktivitaetsprotokoll', 'login-historie', 'geloeschte-anfragen']);
 
       function cleanHash(value) {
-        return String(value || '').replace('#', '') || 'uebersicht';
+        return String(value || '').replace('#', '').trim() || 'uebersicht';
       }
 
-      function pageForTarget(target) {
-        const clean = cleanHash(target);
-        if (securitySubPages.has(clean) || clean === 'sicherheit') return 'sicherheit';
-        if (clean === 'general-emails') return 'emails';
-        if (clean.startsWith('dep-') || clean.startsWith('request-')) return 'anfragen';
-        if (primaryPages.has(clean)) return clean;
+      function pageFor(target) {
+        const key = cleanHash(target);
+        if (securityPages.has(key) || key === 'sicherheit') return 'sicherheit';
+        if (key === 'general-emails') return 'emails';
+        if (key.startsWith('dep-') || key.startsWith('request-')) return 'anfragen';
+        if (mainPages.has(key)) return key;
         return 'uebersicht';
       }
 
-      function showAdminPage(targetValue, shouldScroll) {
-        const target = cleanHash(targetValue || window.location.hash);
-        const page = pageForTarget(target);
-        const sections = Array.from(document.querySelectorAll('[data-admin-page]'));
-
-        sections.forEach((section) => {
-          let visible = section.dataset.adminPage === page;
-
-          if (page === 'sicherheit') {
-            if (securitySubPages.has(target)) {
-              visible = section.id === target;
-            } else {
-              visible = section.id === 'sicherheit';
-            }
-          }
-
-          section.hidden = !visible;
-        });
-
+      function updateActiveNavigation(page, target) {
         document.querySelectorAll('[data-nav-page]').forEach((link) => {
           const active = link.dataset.navPage === page;
           link.classList.toggle('active', active);
@@ -1294,15 +1221,37 @@
         });
 
         document.querySelectorAll('.sidebar-subnav a').forEach((link) => {
-          link.classList.toggle('active', cleanHash(link.getAttribute('href')) === target);
+          const isSubActive = cleanHash(link.getAttribute('href')) === target;
+          link.classList.toggle('active', isSubActive);
+        });
+      }
+
+      function showPage(targetValue, shouldScroll = true) {
+        const target = cleanHash(targetValue || window.location.hash);
+        const page = pageFor(target);
+
+        document.querySelectorAll('[data-admin-page]').forEach((section) => {
+          let show = section.dataset.adminPage === page;
+
+          // Sicherheit ist eine eigene Seite. Unterpunkte zeigen jeweils nur ihren eigenen Block.
+          if (page === 'sicherheit') {
+            if (securityPages.has(target)) {
+              show = section.id === target;
+            } else {
+              show = section.id === 'sicherheit';
+            }
+          }
+
+          section.hidden = !show;
         });
 
+        updateActiveNavigation(page, target);
         document.body.classList.remove('sidebar-open');
 
         if (shouldScroll) {
           const focus = document.getElementById(target);
-          if (focus && !focus.hidden && (page !== 'sicherheit' || focus.id !== 'sicherheit')) {
-            setTimeout(() => focus.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
+          if (focus && !focus.hidden && target !== page) {
+            setTimeout(() => focus.scrollIntoView({ behavior: 'smooth', block: 'start' }), 20);
           } else {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }
@@ -1310,122 +1259,29 @@
       }
 
       document.querySelectorAll('a[href^="#"]').forEach((link) => {
-        const target = cleanHash(link.getAttribute('href'));
-        if (!target) return;
         link.addEventListener('click', (event) => {
-          const page = pageForTarget(target);
-          if (!primaryPages.has(page)) return;
+          const target = cleanHash(link.getAttribute('href'));
+          const page = pageFor(target);
+          if (!mainPages.has(page)) return;
           event.preventDefault();
           if (window.location.hash === '#' + target) {
-            showAdminPage(target, true);
+            showPage(target, true);
           } else {
             window.location.hash = target;
           }
         });
       });
 
-      window.addEventListener('hashchange', () => showAdminPage(window.location.hash, true));
-      showAdminPage(window.location.hash || '#uebersicht', false);
-      window.GRÜNWERK_SHOW_ADMIN_PAGE = showAdminPage;
-    })();
-  </script>
-
-
-  <script>
-    // Notfall-Fix: robuste Seiten-Navigation im Admin-Dashboard.
-    // Diese Logik läuft zuletzt und verhindert, dass alte Scroll-/Hash-Skripte die Bereiche wieder verstecken.
-    (function () {
-      function ready(fn) {
-        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
-        else fn();
-      }
-
-      ready(function () {
-        const securitySubPages = new Set(['backups', 'aktivitaetsprotokoll', 'login-historie', 'geloeschte-anfragen']);
-        const mainPages = new Set(['uebersicht', 'anfragen', 'kalender', 'emails', 'sicherheit']);
-
-        function clean(value) {
-          return String(value || '').replace(/^#/, '').trim() || 'uebersicht';
-        }
-
-        function pageFor(target) {
-          const t = clean(target);
-          if (securitySubPages.has(t) || t === 'sicherheit') return 'sicherheit';
-          if (t === 'general-emails') return 'emails';
-          if (t.startsWith('dep-') || t.startsWith('request-')) return 'anfragen';
-          if (mainPages.has(t)) return t;
-          return 'uebersicht';
-        }
-
-        function setActiveNav(page, target) {
-          document.querySelectorAll('[data-nav-page]').forEach((link) => {
-            const active = link.dataset.navPage === page;
-            link.classList.toggle('active', active);
-            const group = link.closest('[data-security-nav]');
-            if (group) group.classList.toggle('active', page === 'sicherheit');
-          });
-
-          document.querySelectorAll('.sidebar-subnav a').forEach((link) => {
-            link.classList.toggle('active', clean(link.getAttribute('href')) === clean(target));
-          });
-        }
-
-        function showPage(targetValue, shouldScroll) {
-          const target = clean(targetValue || window.location.hash);
-          const page = pageFor(target);
-          const sections = Array.from(document.querySelectorAll('[data-admin-page]'));
-
-          sections.forEach((section) => {
-            let visible = section.dataset.adminPage === page;
-
-            if (page === 'sicherheit') {
-              if (securitySubPages.has(target)) {
-                visible = section.id === target;
-              } else {
-                visible = section.id === 'sicherheit';
-              }
-            }
-
-            section.hidden = !visible;
-            section.classList.toggle('is-visible-admin-page', visible);
-          });
-
-          setActiveNav(page, target);
-          document.body.classList.remove('sidebar-open');
-
-          if (shouldScroll) {
-            const focus = document.getElementById(target);
-            if (focus && !focus.hidden) {
-              setTimeout(() => focus.scrollIntoView({ behavior: 'smooth', block: 'start' }), 20);
-            } else {
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-          }
-        }
-
-        document.addEventListener('click', function (event) {
-          const link = event.target.closest('a[href^="#"]');
-          if (!link) return;
-
-          const target = clean(link.getAttribute('href'));
-          const page = pageFor(target);
-          if (!mainPages.has(page)) return;
-
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          history.pushState(null, '', '#' + target);
-          showPage(target, true);
-        }, true);
-
-        window.addEventListener('popstate', () => showPage(window.location.hash || '#uebersicht', true));
-        window.addEventListener('hashchange', () => showPage(window.location.hash || '#uebersicht', true));
-
-        showPage(window.location.hash || '#uebersicht', false);
-        window.GRUENWERK_ADMIN_SHOW_PAGE = showPage;
+      document.querySelectorAll('[data-sidebar-toggle]').forEach((button) => {
+        button.addEventListener('click', () => document.body.classList.toggle('sidebar-open'));
       });
+
+      window.addEventListener('hashchange', () => showPage(window.location.hash, true));
+      document.addEventListener('DOMContentLoaded', () => showPage(window.location.hash || '#uebersicht', false));
+      showPage(window.location.hash || '#uebersicht', false);
+      window.GRUENWERK_SHOW_ADMIN_PAGE = showPage;
     })();
   </script>
-
   <script src="/inline-edit.js" defer></script>
 </body>
 </html>

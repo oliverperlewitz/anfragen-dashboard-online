@@ -290,6 +290,29 @@
       </div>
     </section>
 
+    <section class="overview-home-grid" data-admin-page="uebersicht">
+      <a class="overview-home-card" href="#anfragen">
+        <span>📋</span>
+        <strong>Anfragen öffnen</strong>
+        <small>Alle Kundenaufträge, Felder, Fotos, Notizen und Statusänderungen.</small>
+      </a>
+      <a class="overview-home-card" href="#kalender">
+        <span>📅</span>
+        <strong>Kalender öffnen</strong>
+        <small>Termine, mögliche Aufträge und freie Zeiten planen.</small>
+      </a>
+      <a class="overview-home-card" href="#emails">
+        <span>✉️</span>
+        <strong>E-Mails öffnen</strong>
+        <small>STRATO abrufen, Kundenantworten und allgemeine E-Mails verwalten.</small>
+      </a>
+      <a class="overview-home-card" href="#sicherheit">
+        <span>🛡️</span>
+        <strong>Sicherheit öffnen</strong>
+        <small>Backups, Aktivitäten, Login-Historie und gelöschte Anfragen.</small>
+      </a>
+    </section>
+
     <% if (mailSync) { %>
       <section class="admin-alert success-alert" data-admin-page="uebersicht"><%= mailSync %></section>
     <% } %>
@@ -1226,6 +1249,86 @@
     applyPageFromHash();
   </script>
 
+  <script>
+    (function () {
+      const securitySubPages = new Set(['backups', 'aktivitaetsprotokoll', 'login-historie', 'geloeschte-anfragen']);
+      const primaryPages = new Set(['uebersicht', 'anfragen', 'kalender', 'emails', 'sicherheit']);
+
+      function cleanHash(value) {
+        return String(value || '').replace('#', '') || 'uebersicht';
+      }
+
+      function pageForTarget(target) {
+        const clean = cleanHash(target);
+        if (securitySubPages.has(clean) || clean === 'sicherheit') return 'sicherheit';
+        if (clean === 'general-emails') return 'emails';
+        if (clean.startsWith('dep-') || clean.startsWith('request-')) return 'anfragen';
+        if (primaryPages.has(clean)) return clean;
+        return 'uebersicht';
+      }
+
+      function showAdminPage(targetValue, shouldScroll) {
+        const target = cleanHash(targetValue || window.location.hash);
+        const page = pageForTarget(target);
+        const sections = Array.from(document.querySelectorAll('[data-admin-page]'));
+
+        sections.forEach((section) => {
+          let visible = section.dataset.adminPage === page;
+
+          if (page === 'sicherheit') {
+            if (securitySubPages.has(target)) {
+              visible = section.id === target;
+            } else {
+              visible = section.id === 'sicherheit';
+            }
+          }
+
+          section.hidden = !visible;
+        });
+
+        document.querySelectorAll('[data-nav-page]').forEach((link) => {
+          const active = link.dataset.navPage === page;
+          link.classList.toggle('active', active);
+          const securityGroup = link.closest('[data-security-nav]');
+          if (securityGroup) securityGroup.classList.toggle('active', page === 'sicherheit');
+        });
+
+        document.querySelectorAll('.sidebar-subnav a').forEach((link) => {
+          link.classList.toggle('active', cleanHash(link.getAttribute('href')) === target);
+        });
+
+        document.body.classList.remove('sidebar-open');
+
+        if (shouldScroll) {
+          const focus = document.getElementById(target);
+          if (focus && !focus.hidden && (page !== 'sicherheit' || focus.id !== 'sicherheit')) {
+            setTimeout(() => focus.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
+          } else {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }
+        }
+      }
+
+      document.querySelectorAll('a[href^="#"]').forEach((link) => {
+        const target = cleanHash(link.getAttribute('href'));
+        if (!target) return;
+        link.addEventListener('click', (event) => {
+          const page = pageForTarget(target);
+          if (!primaryPages.has(page)) return;
+          event.preventDefault();
+          if (window.location.hash === '#' + target) {
+            showAdminPage(target, true);
+          } else {
+            window.location.hash = target;
+          }
+        });
+      });
+
+      window.addEventListener('hashchange', () => showAdminPage(window.location.hash, true));
+      showAdminPage(window.location.hash || '#uebersicht', false);
+      window.GRÜNWERK_SHOW_ADMIN_PAGE = showAdminPage;
+    })();
+  </script>
   <script src="/inline-edit.js" defer></script>
 </body>
 </html>

@@ -2881,3 +2881,66 @@ pre { white-space: pre-wrap; margin: 0; font-family: inherit; color: var(--muted
   .security-hub-grid { grid-template-columns: 1fr; }
   .profile-menu-panel { right: -8px; }
 }
+
+
+/* Sidebar refinements: active page, standalone security page, right aligned profile */
+.admin-shell-header-compact {
+  justify-content: flex-end;
+}
+.admin-profile-menu {
+  margin-left: auto;
+}
+.admin-profile-menu .admin-user-chip {
+  white-space: nowrap;
+}
+.sidebar-security-group.active .sidebar-security-main,
+.sidebar-security-main.active {
+  background: #f5f7ef;
+  color: var(--green);
+  box-shadow: 0 10px 24px rgba(0,0,0,.12);
+}
+.sidebar-subnav {
+  display: grid;
+  gap: 2px;
+  padding: 4px 4px 6px 18px;
+}
+.sidebar-subnav a {
+  min-height: 28px;
+  padding: 6px 10px;
+  margin-left: 18px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 900;
+  color: rgba(255,255,255,.72);
+}
+.sidebar-subnav a:hover,
+.sidebar-subnav a.active {
+  background: rgba(255,255,255,.11);
+  color: #fff;
+}
+.sidebar-note {
+  color: rgba(255,255,255,.70);
+  line-height: 1.35;
+}
+.sidebar-note span {
+  font-weight: 900;
+  color: rgba(255,255,255,.88);
+}
+.sidebar-note small {
+  display: block;
+  margin-top: 2px;
+  font-weight: 800;
+  font-size: 11px;
+  color: rgba(255,255,255,.56);
+}
+[data-admin-page][hidden] {
+  display: none !important;
+}
+.security-hub-panel[data-admin-page="sicherheit"] {
+  margin-top: 0;
+}
+@media (min-width: 981px) {
+  .admin-shell-header-compact .admin-profile-menu {
+    margin-right: 0;
+  }
+}

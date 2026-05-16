@@ -231,28 +231,24 @@
     </a>
 
     <nav class="sidebar-nav">
-      <a class="sidebar-link active" href="#uebersicht"><span>🏠</span> Übersicht</a>
-      <a class="sidebar-link" href="#anfragen"><span>📋</span> Anfragen</a>
-      <a class="sidebar-link" href="#kalender"><span>📅</span> Kalender</a>
-      <a class="sidebar-link" href="#emails"><span>✉️</span> E-Mails</a>
-      <details class="sidebar-group" open>
-        <summary><span>🛡️</span> Sicherheit</summary>
-        <a href="#backups">Backups</a>
-        <a href="#aktivitaetsprotokoll">Aktivitätsprotokoll</a>
-        <a href="#login-historie">Login-Historie</a>
-        <a href="#geloeschte-anfragen">Gelöschte Anfragen</a>
-      </details>
-      <% if (permissions && permissions.canManageUsers) { %>
-        <a class="sidebar-link" href="/admin/users"><span>👥</span> Benutzer</a>
-      <% } %>
+      <a class="sidebar-link active" href="#uebersicht" data-nav-page="uebersicht"><span>🏠</span> Übersicht</a>
+      <a class="sidebar-link" href="#anfragen" data-nav-page="anfragen"><span>📋</span> Anfragen</a>
+      <a class="sidebar-link" href="#kalender" data-nav-page="kalender"><span>📅</span> Kalender</a>
+      <a class="sidebar-link" href="#emails" data-nav-page="emails"><span>✉️</span> E-Mails</a>
+      <div class="sidebar-group sidebar-security-group" data-security-nav>
+        <a class="sidebar-link sidebar-security-main" href="#sicherheit" data-nav-page="sicherheit"><span>🛡️</span> Sicherheit</a>
+        <div class="sidebar-subnav">
+          <a href="#backups" data-nav-page="sicherheit">Backups</a>
+          <a href="#aktivitaetsprotokoll" data-nav-page="sicherheit">Aktivitätsprotokoll</a>
+          <a href="#login-historie" data-nav-page="sicherheit">Login-Historie</a>
+          <a href="#geloeschte-anfragen" data-nav-page="sicherheit">Gelöschte Anfragen</a>
+        </div>
+      </div>
     </nav>
 
-    <div class="sidebar-bottom">
-      <a class="sidebar-link" href="/" target="_blank"><span>🌐</span> Website ansehen</a>
-      <form action="/logout" method="POST">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <button class="sidebar-logout" type="submit"><span>↪</span> Ausloggen</button>
-      </form>
+    <div class="sidebar-bottom sidebar-note">
+      <span>GrünWerk Verwaltung</span>
+      <small>Navigation links · Aktionen oben rechts</small>
     </div>
   </aside>
 
@@ -279,8 +275,8 @@
     </details>
   </header>
 
-  <main class="admin-pro-main">
-    <section id="uebersicht" class="admin-hero-panel">
+  <main class="admin-pro-main" data-admin-pages>
+    <section id="uebersicht" class="admin-hero-panel" data-admin-page="uebersicht">
       <div>
         <p class="admin-kicker">Anfragen Management</p>
         <h1>Dashboard</h1>
@@ -295,13 +291,13 @@
     </section>
 
     <% if (mailSync) { %>
-      <section class="admin-alert success-alert"><%= mailSync %></section>
+      <section class="admin-alert success-alert" data-admin-page="uebersicht"><%= mailSync %></section>
     <% } %>
     <% if (mailError) { %>
-      <section class="admin-alert error-alert"><%= mailError %></section>
+      <section class="admin-alert error-alert" data-admin-page="uebersicht"><%= mailError %></section>
     <% } %>
 
-    <section id="emails" class="admin-toolbar-panel mail-sync-panel">
+    <section id="emails" class="admin-toolbar-panel mail-sync-panel" data-admin-page="emails">
       <div>
         <strong>Kundenantworten aus STRATO abrufen</strong>
         <p>Importiert neue Antworten aus dem STRATO-Postfach und ordnet sie über die Anfragenummer im Betreff zu.</p>
@@ -315,7 +311,7 @@
       <% } %>
     </section>
 
-    <section id="kalender" class="admin-panel calendar-panel">
+    <section id="kalender" class="admin-panel calendar-panel" data-admin-page="kalender">
       <div class="department-section-head compact-head calendar-head">
         <div>
           <p class="admin-kicker">Terminplanung</p>
@@ -398,7 +394,7 @@
       </div>
     </section>
 
-    <section id="general-emails" class="admin-panel general-mails-panel">
+    <section id="general-emails" class="admin-panel general-mails-panel" data-admin-page="emails">
       <div class="department-section-head compact-head">
         <div>
           <p class="admin-kicker">Posteingang</p>
@@ -468,7 +464,7 @@
       <% } %>
     </section>
 
-    <section class="admin-toolbar-panel">
+    <section class="admin-toolbar-panel" data-admin-page="anfragen">
       <form action="/admin" method="GET" class="admin-pro-search">
         <input name="suche" value="<%= suche %>" placeholder="Suchen nach Name, Telefon, E-Mail, Ort, Leistung oder Status...">
         <button type="submit">Suchen</button>
@@ -476,7 +472,7 @@
       </form>
     </section>
 
-    <section id="anfragen" class="department-overview">
+    <section id="anfragen" class="department-overview" data-admin-page="anfragen">
       <% grouped.forEach(dep => { %>
         <a class="department-tile" href="#dep-<%= dep.name.toLowerCase().replaceAll(' ', '-').replaceAll('&', 'und') %>">
           <span class="department-icon"><%= dep.icon %></span>
@@ -489,12 +485,12 @@
     </section>
 
     <% if (anfragen.length === 0) { %>
-      <section class="admin-panel empty-state">
+      <section class="admin-panel empty-state" data-admin-page="anfragen">
         <h2>Keine Anfragen gefunden.</h2>
         <p>Neue Projektanfragen erscheinen automatisch hier.</p>
       </section>
     <% } else { %>
-      <section class="department-stack">
+      <section class="department-stack" data-admin-page="anfragen">
         <% grouped.forEach(dep => { %>
           <section class="department-section" id="dep-<%= dep.name.toLowerCase().replaceAll(' ', '-').replaceAll('&', 'und') %>">
             <div class="department-section-head">
@@ -894,7 +890,7 @@
 
 
     <% if (permissions && (permissions.canDownloadBackups || permissions.canViewActivity)) { %>
-      <section id="sicherheit" class="admin-panel security-hub-panel">
+      <section id="sicherheit" class="admin-panel security-hub-panel" data-admin-page="sicherheit">
         <div class="department-section-head compact-head">
           <div>
             <p class="admin-kicker">Sicherheit</p>
@@ -911,7 +907,7 @@
       </section>
     <% } %>
 
-    <section id="login-historie" class="admin-panel security-section-card placeholder-security-panel">
+    <section id="login-historie" class="admin-panel security-section-card placeholder-security-panel" data-admin-page="sicherheit">
       <div class="department-section-head compact-head">
         <div>
           <p class="admin-kicker">Sicherheit</p>
@@ -922,7 +918,7 @@
       </div>
     </section>
 
-    <section id="geloeschte-anfragen" class="admin-panel security-section-card placeholder-security-panel">
+    <section id="geloeschte-anfragen" class="admin-panel security-section-card placeholder-security-panel" data-admin-page="sicherheit">
       <div class="department-section-head compact-head">
         <div>
           <p class="admin-kicker">Sicherheit</p>
@@ -934,7 +930,7 @@
     </section>
 
     <% if (permissions && permissions.canDownloadBackups) { %>
-    <section id="backups" class="admin-panel backup-panel security-section-card">
+    <section id="backups" class="admin-panel backup-panel security-section-card" data-admin-page="sicherheit">
       <div class="department-section-head compact-head">
         <div>
           <p class="admin-kicker">Datensicherung</p>
@@ -970,7 +966,7 @@
 
 
     <% if (permissions && permissions.canViewActivity && activityLog && activityLog.length) { %>
-      <section id="aktivitaetsprotokoll" class="admin-panel activity-panel security-section-card">
+      <section id="aktivitaetsprotokoll" class="admin-panel activity-panel security-section-card" data-admin-page="sicherheit">
         <div class="department-section-head compact-head">
           <div>
             <p class="admin-kicker">Sicherheit</p>
@@ -1174,11 +1170,60 @@
       });
     });
 
-    document.querySelectorAll('.sidebar-link, .sidebar-group a').forEach((link) => {
+    const adminPages = Array.from(document.querySelectorAll('[data-admin-page]'));
+    const navLinks = Array.from(document.querySelectorAll('[data-nav-page]'));
+    const securityHashes = new Set(['sicherheit', 'backups', 'aktivitaetsprotokoll', 'login-historie', 'geloeschte-anfragen']);
+
+    function pageFromHash(hashValue) {
+      const hash = String(hashValue || '').replace('#', '') || 'uebersicht';
+      if (securityHashes.has(hash)) return 'sicherheit';
+      if (hash === 'general-emails') return 'emails';
+      if (hash.startsWith('dep-') || hash.startsWith('request-')) return 'anfragen';
+      if (['uebersicht', 'anfragen', 'kalender', 'emails'].includes(hash)) return hash;
+      return 'uebersicht';
+    }
+
+    function setActivePage(page, focusHash) {
+      adminPages.forEach((section) => {
+        section.hidden = section.dataset.adminPage !== page;
+      });
+
+      navLinks.forEach((link) => {
+        const isActive = link.dataset.navPage === page;
+        link.classList.toggle('active', isActive);
+        if (link.closest('[data-security-nav]')) {
+          link.closest('[data-security-nav]').classList.toggle('active', page === 'sicherheit');
+        }
+      });
+
+      document.body.classList.remove('sidebar-open');
+
+      if (focusHash) {
+        const target = document.getElementById(focusHash.replace('#', ''));
+        if (target && target.dataset.adminPage === page) {
+          setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+
+    function applyPageFromHash() {
+      const hash = window.location.hash || '#uebersicht';
+      setActivePage(pageFromHash(hash), hash);
+    }
+
+    navLinks.forEach((link) => {
       link.addEventListener('click', () => {
-        document.body.classList.remove('sidebar-open');
+        const page = link.dataset.navPage || pageFromHash(link.getAttribute('href'));
+        setActivePage(page, link.getAttribute('href'));
       });
     });
+
+    window.addEventListener('hashchange', applyPageFromHash);
+    applyPageFromHash();
   </script>
 
   <script src="/inline-edit.js" defer></script>

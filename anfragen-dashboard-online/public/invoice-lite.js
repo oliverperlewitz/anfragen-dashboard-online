@@ -12,13 +12,18 @@
     footer: DEFAULT_FOOTER
   };
 
-  function paymentDetailsFromSettings() {
+  function paymentDetailsFromSettings(kind = 'invoice') {
+    if (kind === 'paypal') {
+      return invoiceSettings.paypalEmail ? `PayPal: ${invoiceSettings.paypalEmail}` : '';
+    }
+    if (kind === 'cash' || kind === 'card') {
+      return '';
+    }
     return [
       invoiceSettings.iban ? `IBAN: ${invoiceSettings.iban}` : '',
       invoiceSettings.bic ? `BIC: ${invoiceSettings.bic}` : '',
       invoiceSettings.accountHolder ? `Kontoinhaber: ${invoiceSettings.accountHolder}` : '',
-      invoiceSettings.bank ? `Bank: ${invoiceSettings.bank}` : '',
-      invoiceSettings.paypalEmail ? `PayPal: ${invoiceSettings.paypalEmail}` : ''
+      invoiceSettings.bank ? `Bank: ${invoiceSettings.bank}` : ''
     ].filter(Boolean).join('\n');
   }
 
@@ -39,8 +44,10 @@
     if (companyAddress && !companyAddress.value.trim() && invoiceSettings.companyAddress) companyAddress.value = invoiceSettings.companyAddress;
 
     const ibanField = panel.querySelector('.invoice-iban');
-    const paymentDetails = paymentDetailsFromSettings();
+    const kind = panel.querySelector('.invoice-kind')?.value || 'invoice';
+    const paymentDetails = paymentDetailsFromSettings(kind);
     if (ibanField && !ibanField.value.trim() && paymentDetails) ibanField.value = paymentDetails;
+    updatePaymentTextarea(panel);
   }
 
   function ready(fn) {
@@ -180,6 +187,7 @@
       else if (wish.includes('paypal') || wish.includes('pay pal')) kindSelect.value = 'paypal';
       else if (wish.includes('karte') || wish.includes('sumup') || wish.includes('sonstig')) kindSelect.value = 'card';
       else if (wish.includes('rechnung') || wish.includes('überweisung') || wish.includes('ueberweisung')) kindSelect.value = 'invoice';
+      kindSelect.addEventListener('change', () => updatePaymentTextarea(panel));
     }
     panel.querySelector('.invoice-preview').addEventListener('click', () => openInvoice(panel, data));
     panel.querySelector('.invoice-email').addEventListener('click', () => sendInvoiceEmail(panel, data));
@@ -247,9 +255,46 @@
     ].join('\n');
   }
 
+  function printablePaymentDetails(doc, paymentText) {
+    if (doc.kind === 'invoice') {
+      return doc.iban || paymentDetailsFromSettings('invoice') || paymentText;
+    }
+    if (doc.kind === 'paypal') {
+      return paymentDetailsFromSettings('paypal') || paymentText;
+    }
+    if (doc.kind === 'cash') {
+      return `Betrag dankend bar erhalten am ${germanDate(doc.invDate)}.\nZahlungsstatus: Bezahlt`;
+    }
+    if (doc.kind === 'card') {
+      return 'Zahlung per Kartenzahlung / Sonstiges erhalten oder gesondert vereinbart.';
+    }
+    return paymentText;
+  }
+
+  function updatePaymentTextarea(panel) {
+    const kind = panel.querySelector('.invoice-kind')?.value || 'invoice';
+    const field = panel.querySelector('.invoice-iban');
+    if (!field) return;
+    const current = field.value.trim();
+    const knownValues = [
+      paymentDetailsFromSettings('invoice'),
+      paymentDetailsFromSettings('paypal'),
+      'Betrag dankend bar erhalten.',
+      'Zahlung per Kartenzahlung / Sonstiges erhalten oder gesondert vereinbart.'
+    ].filter(Boolean);
+    const mayReplace = !current || knownValues.includes(current);
+    if (!mayReplace) return;
+
+    if (kind === 'invoice') field.value = paymentDetailsFromSettings('invoice');
+    else if (kind === 'paypal') field.value = paymentDetailsFromSettings('paypal');
+    else if (kind === 'cash') field.value = 'Betrag dankend bar erhalten.';
+    else if (kind === 'card') field.value = 'Zahlung per Kartenzahlung / Sonstiges erhalten oder gesondert vereinbart.';
+  }
+
   function openInvoice(panel, data) {
     const doc = collect(panel, data);
     const paymentText = paymentDueText(doc);
+    const paymentDetailsText = printablePaymentDetails(doc, paymentText);
 
     const rowsHtml = doc.rows.map((row, index) => `
       <tr>
@@ -303,7 +348,7 @@
       </div>
       <table><thead><tr><th>Pos.</th><th>Beschreibung</th><th>Menge</th><th>Einzelpreis</th><th>Gesamt</th></tr></thead><tbody>${rowsHtml}</tbody></table>
       <div class="total"><span>Gesamtbetrag</span><strong>${money(doc.total)}</strong></div>
-      <div class="payment"><h3>Zahlungsdaten</h3><p>${escapeHtml(doc.iban || paymentText)}</p></div>
+      <div class="payment"><h3>${doc.kind === 'cash' ? 'Barzahlung' : doc.kind === 'card' ? 'Zahlungsnachweis' : 'Zahlungsdaten'}</h3><p>${escapeHtml(paymentDetailsText)}</p></div>
       <div class="footer"><h3>Hinweis</h3><p>${escapeHtml(doc.legal || '')}</p><p>${escapeHtml(invoiceSettings.footer || DEFAULT_FOOTER)}</p></div>
       </body></html>`;
 
@@ -353,7 +398,7 @@
         footer: invoiceSettings.footer || DEFAULT_FOOTER,
         paypalEmail: invoiceSettings.paypalEmail || '',
         paymentText: paymentDueText(doc),
-        paymentDetails: doc.iban || paymentDetailsFromSettings()
+        paymentDetails: printablePaymentDetails(doc, paymentDueText(doc))
       }));
 
       const response = await fetch('/admin/invoice/send', {

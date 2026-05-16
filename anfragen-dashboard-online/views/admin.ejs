@@ -147,6 +147,8 @@
       const text = String(value || '');
       return text.length > length ? text.slice(0, length) + '…' : text;
     };
+    const openGeneralEmails = Array.isArray(generalEmails) ? generalEmails : [];
+    const assignableRequests = Array.isArray(allAnfragen) ? allAnfragen : anfragen;
     const fixReplyMojibake = (value) => {
       const text = String(value || '');
       if (!/[ÃÂâ]/.test(text)) return text;
@@ -265,6 +267,76 @@
       </form>
       <% if (!imapReady) { %>
         <small>IMAP ist noch nicht eingerichtet. Trage IMAP_HOST, IMAP_USER und IMAP_PASS bei Render ein.</small>
+      <% } %>
+    </section>
+
+    <section id="general-emails" class="admin-panel general-mails-panel">
+      <div class="department-section-head compact-head">
+        <div>
+          <p class="admin-kicker">Posteingang</p>
+          <h2>Allgemeine E-Mails</h2>
+          <p>E-Mails ohne Auftragsnummer landen hier. Du kannst daraus eine neue Anfrage erstellen, sie einem bestehenden Auftrag zuordnen oder als erledigt/archiviert markieren.</p>
+        </div>
+        <div class="department-count"><strong><%= openGeneralEmails.length %></strong><span>offen</span></div>
+      </div>
+
+      <% if (openGeneralEmails.length === 0) { %>
+        <div class="general-empty-state">
+          <strong>Keine allgemeinen E-Mails offen.</strong>
+          <p>Klicke oben auf „E-Mails abrufen“. Wenn eine Mail keine #Anfragenummer im Betreff hat, erscheint sie hier.</p>
+        </div>
+      <% } else { %>
+        <div class="general-mail-list">
+          <% openGeneralEmails.forEach(mail => { %>
+            <article class="general-mail-card">
+              <div class="general-mail-head">
+                <div>
+                  <span class="general-mail-badge">Allgemeine E-Mail</span>
+                  <h3><%= mail.subject || '(ohne Betreff)' %></h3>
+                  <p><strong>Von:</strong> <%= mail.from || '-' %></p>
+                </div>
+                <time><%= mail.receivedAtLabel || '' %></time>
+              </div>
+
+              <div class="general-mail-message">
+                <span>Nachricht</span>
+                <p><%= cleanReplyPreview(mail.text || '') %></p>
+              </div>
+
+              <% if (mail.photoCount || (mail.photos && mail.photos.length)) { %>
+                <div class="general-mail-attachments">📎 <%= mail.photoCount || mail.photos.length %> Bildanhang/Bildanhänge erkannt</div>
+              <% } %>
+
+              <div class="general-mail-actions">
+                <form action="/admin/general-emails/<%= mail.id %>/create-request" method="POST" onsubmit="return confirm('Aus dieser E-Mail eine neue Anfrage erstellen?');">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit">Neue Anfrage erstellen</button>
+                </form>
+
+                <form action="/admin/general-emails/<%= mail.id %>/assign" method="POST" class="assign-mail-form">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <select name="requestId" required>
+                    <option value="">Bestehendem Auftrag zuordnen</option>
+                    <% assignableRequests.slice(0, 80).forEach(reqItem => { %>
+                      <option value="<%= reqItem.id %>">#<%= String(reqItem.id || '').slice(-6) %> · <%= reqItem.name || 'Ohne Name' %> · <%= reqItem.kategorie || reqItem.leistung || 'Sonstiges' %></option>
+                    <% }) %>
+                  </select>
+                  <button type="submit" class="secondary">Zuordnen</button>
+                </form>
+
+                <form action="/admin/general-emails/<%= mail.id %>/done" method="POST">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="secondary">Als erledigt markieren</button>
+                </form>
+
+                <form action="/admin/general-emails/<%= mail.id %>/archive" method="POST" onsubmit="return confirm('Diese E-Mail archivieren/ignorieren?');">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="ghost-danger">Ignorieren / archivieren</button>
+                </form>
+              </div>
+            </article>
+          <% }) %>
+        </div>
       <% } %>
     </section>
 

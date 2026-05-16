@@ -20,6 +20,7 @@ const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'anfragen.json');
 const ACTIVITY_LOG_FILE = path.join(DATA_DIR, 'activity-log.json');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
+const GENERAL_MAIL_FILE = path.join(DATA_DIR, 'general-emails.json');
 
 const MAX_PHOTO_SIZE_MB = Number(process.env.MAX_PHOTO_SIZE_MB || 10);
 const MAX_PHOTO_SIZE_BYTES = MAX_PHOTO_SIZE_MB * 1024 * 1024;
@@ -154,6 +155,7 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
 if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, '[]', 'utf8');
 if (!fs.existsSync(ACTIVITY_LOG_FILE)) fs.writeFileSync(ACTIVITY_LOG_FILE, '[]', 'utf8');
+if (!fs.existsSync(GENERAL_MAIL_FILE)) fs.writeFileSync(GENERAL_MAIL_FILE, '[]', 'utf8');
 
 const usePostgres = Boolean(process.env.DATABASE_URL);
 const pool = usePostgres ? new Pool({
@@ -202,6 +204,19 @@ async function initDatabase() {
     )
   `);
   await pool.query('CREATE INDEX IF NOT EXISTS idx_admin_users_username ON admin_users (username)');
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS general_emails (
+      id TEXT PRIMARY KEY,
+      source_message_id TEXT UNIQUE,
+      received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      status TEXT NOT NULL DEFAULT 'offen',
+      data JSONB NOT NULL
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_general_emails_received_at ON general_emails (received_at DESC)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_general_emails_status ON general_emails (status)');
+
   await bootstrapAdminUsers();
 
   const countResult = await pool.query('SELECT COUNT(*)::int AS count FROM anfragen');
@@ -436,8 +451,128 @@ async function writeAnfragen(anfragen) {
   }
 }
 
+
+function readGeneralEmailsFromFile() {
+  return readJsonFile(GENERAL_MAIL_FILE, []);
+}
+
+function writeGeneralEmailsToFile(items) {
+  writeJsonFile(GENERAL_MAIL_FILE, items);
+}
+
+function normalizeGeneralEmail(row) {
+  const data = row.data || {};
+  return {
+    ...data,
+    id: data.id || row.id,
+    status: data.status || row.status || 'offen',
+    receivedAt: data.receivedAt || (row.received_at ? new Date(row.received_at).toISOString() : new Date().toISOString())
+  };
+}
+
+async function readGeneralEmails(options = {}) {
+  const includeArchived = Boolean(options.includeArchived);
+  const hiddenStatuses = ['archiviert', 'erledigt', 'zugeordnet', 'umgewandelt'];
+  if (!pool) {
+    const items = readGeneralEmailsFromFile();
+    return items
+      .filter(item => includeArchived || !hiddenStatuses.includes(item.status))
+      .sort((a, b) => new Date(b.receivedAt || 0) - new Date(a.receivedAt || 0));
+  }
+
+  await ensureDatabase();
+  const where = includeArchived ? '' : "WHERE status NOT IN ('archiviert', 'erledigt', 'zugeordnet', 'umgewandelt')";
+  const result = await pool.query(
+    `SELECT id, source_message_id, received_at, status, data
+     FROM general_emails
+     ${where}
+     ORDER BY received_at DESC
+     LIMIT 50`
+  );
+  return result.rows.map(normalizeGeneralEmail);
+}
+
+async function upsertGeneralEmail(email) {
+  if (!pool) {
+    const items = readGeneralEmailsFromFile();
+    if (email.sourceMessageId && items.some(item => item.sourceMessageId === email.sourceMessageId)) return { duplicate: true };
+    items.unshift(email);
+    writeGeneralEmailsToFile(items.slice(0, 300));
+    return { duplicate: false };
+  }
+
+  await ensureDatabase();
+  const result = await pool.query(
+    `INSERT INTO general_emails (id, source_message_id, received_at, status, data)
+     VALUES ($1, $2, $3, $4, $5::jsonb)
+     ON CONFLICT (source_message_id) DO NOTHING
+     RETURNING id`,
+    [email.id, email.sourceMessageId || email.id, email.receivedAt, email.status || 'offen', JSON.stringify(email)]
+  );
+  return { duplicate: result.rowCount === 0 };
+}
+
+async function updateGeneralEmail(id, updater) {
+  const items = await readGeneralEmails({ includeArchived: true });
+  const email = items.find(item => item.id === id);
+  if (!email) return null;
+  const updated = typeof updater === 'function' ? updater({ ...email }) : { ...email, ...updater };
+  updated.updatedAt = new Date().toISOString();
+  updated.updatedAtLabel = formatBerlinDateTime();
+
+  if (!pool) {
+    const all = readGeneralEmailsFromFile();
+    const index = all.findIndex(item => item.id === id);
+    if (index >= 0) all[index] = updated;
+    writeGeneralEmailsToFile(all);
+    return updated;
+  }
+
+  await ensureDatabase();
+  await pool.query(
+    `UPDATE general_emails SET status = $1, data = $2::jsonb WHERE id = $3`,
+    [updated.status || 'offen', JSON.stringify(updated), id]
+  );
+  return updated;
+}
+
+function extractEmailAddress(value) {
+  const text = String(value || '');
+  const match = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return match ? match[0].toLowerCase() : '';
+}
+
+function extractDisplayName(value) {
+  const text = decodeMimeHeader(String(value || '')).replace(/<[^>]+>/g, '').replace(/["']/g, '').trim();
+  return cleanText(text || extractEmailAddress(value) || 'Unbekannter Kontakt', 80);
+}
+
+function buildGeneralEmailFromInbound(emailData) {
+  const messageId = cleanText(emailData.messageId || crypto.randomUUID(), 300);
+  const bodyText = cleanReplyText(emailData.text || stripHtmlToText(emailData.html));
+  const photos = emailData.attachments.map(attachment => attachmentToPhoto(attachment, emailData.from)).filter(Boolean);
+  const receivedAt = new Date().toISOString();
+  return {
+    id: crypto.randomUUID(),
+    sourceMessageId: messageId,
+    from: cleanText(emailData.from, 180) || '-',
+    fromEmail: extractEmailAddress(emailData.from),
+    fromName: extractDisplayName(emailData.from),
+    to: cleanText(emailData.to, 180) || '-',
+    subject: cleanText(emailData.subject, 300) || '(ohne Betreff)',
+    text: bodyText || '(keine Textantwort erkannt)',
+    receivedAt,
+    receivedAtLabel: formatBerlinDateTime(receivedAt),
+    status: 'offen',
+    photos,
+    photoCount: photos.length,
+    attachmentCount: emailData.attachments.length
+  };
+}
+
 function formatBerlinDateTime(date = new Date()) {
-  return date.toLocaleString('de-DE', {
+  const dateObj = date instanceof Date ? date : new Date(date);
+  return dateObj.toLocaleString('de-DE', {
     timeZone: 'Europe/Berlin',
     day: '2-digit',
     month: '2-digit',
@@ -972,6 +1107,69 @@ function stripHtmlToText(html) {
     .trim();
 }
 
+
+function fixMojibake(value) {
+  const text = String(value || '');
+  if (!/[ÃÂâ]/.test(text)) return text;
+  try {
+    const fixed = Buffer.from(text, 'latin1').toString('utf8');
+    return fixed.includes('�') ? text : fixed;
+  } catch (error) {
+    return text;
+  }
+}
+
+function cleanReplyText(value, maxLength = 4000) {
+  let text = fixMojibake(value)
+    .replace(/\r\n/g, '\n')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[ \t]+$/gm, '')
+    .trim();
+
+  const inlineCutPatterns = [
+    /\s+GrünWerk\s+Gartenbau\s*<[^>]+>\s+schrieb\s+am\s+.{0,160}?(?:[:>]|$)/i,
+    /\s+[\p{L}0-9 ._'-]+\s*<[^>]+>\s+schrieb\s+am\s+.{0,160}?(?:[:>]|$)/iu,
+    /\s+Am\s+.{0,220}?\s+schrieb\s+.{0,160}?(?:[:>]|$)/i,
+    /\s+On\s+.{0,220}?\s+wrote\s*:/i,
+    /\s+-----Original Message-----/i,
+    /\s+(?:Von|From):\s+/i
+  ];
+  for (const pattern of inlineCutPatterns) {
+    const match = text.match(pattern);
+    if (match && typeof match.index === 'number' && match.index > 0) {
+      text = text.slice(0, match.index).trim();
+      break;
+    }
+  }
+
+  const cleanedLines = [];
+  const stopLinePatterns = [
+    /^>+/,
+    /^\s*Am\s+.+\s+schrieb\s+.+:/i,
+    /^\s*On\s+.+\s+wrote:/i,
+    /^\s*GrünWerk\s+Gartenbau\s*<[^>]+>\s+schrieb\s+am\s+/i,
+    /^\s*[\p{L}0-9 ._'-]+\s*<[^>]+>\s+schrieb\s+am\s+/iu,
+    /^\s*(Von|From|Gesendet|Sent|An|To|Betreff|Subject):\s+/i
+  ];
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (stopLinePatterns.some(pattern => pattern.test(trimmed))) break;
+    cleanedLines.push(trimmed.replace(/^>+\s*/, ''));
+  }
+
+  return cleanedLines.join('\n')
+    .replace(/\s*>\s*>\s*/g, '\n')
+    .replace(/\s*>\s*/g, '\n')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .slice(0, maxLength)
+    .trim();
+}
+
 function extractRequestCodes(...texts) {
   const combined = texts.filter(Boolean).map(String).join('\n');
   const codes = [];
@@ -1024,14 +1222,21 @@ function findAnfrageByCode(anfragen, codes) {
 }
 
 async function saveInboundCustomerReply(emailData, req) {
-  const cleanTextBody = cleanText(emailData.text || stripHtmlToText(emailData.html), 8000);
+  const cleanTextBody = cleanReplyText(emailData.text || stripHtmlToText(emailData.html), 8000);
   const codes = extractRequestCodes(emailData.subject, cleanTextBody, emailData.html);
   const anfragen = await readAnfragen();
   const anfrage = findAnfrageByCode(anfragen, codes);
 
   if (!anfrage) {
-    console.warn('[INBOUND] Kundenantwort konnte keiner Anfrage zugeordnet werden.', { subject: emailData.subject, from: emailData.from, codes });
-    return { ok: false, reason: 'request_not_found', codes };
+    const generalEmail = buildGeneralEmailFromInbound(emailData);
+    const saved = await upsertGeneralEmail(generalEmail);
+    if (saved.duplicate) {
+      console.log('[INBOUND] Allgemeine E-Mail bereits importiert.', { subject: generalEmail.subject, from: generalEmail.from });
+      return { ok: true, duplicate: true, general: true, reason: 'general_email_duplicate' };
+    }
+    addActivity(req, 'general_email_received', { from: generalEmail.from, subject: generalEmail.subject, photos: generalEmail.photoCount });
+    console.log('[INBOUND] Allgemeine E-Mail gespeichert', { from: generalEmail.from, subject: generalEmail.subject, photos: generalEmail.photoCount });
+    return { ok: true, general: true, reason: 'general_email_saved' };
   }
 
   const photos = emailData.attachments.map(attachment => attachmentToPhoto(attachment, emailData.from)).filter(Boolean);
@@ -1260,6 +1465,7 @@ async function fetchCustomerRepliesFromImap(req) {
   let imported = 0;
   let duplicates = 0;
   let skipped = 0;
+  let general = 0;
   let checked = 0;
   let lock;
 
@@ -1276,6 +1482,7 @@ async function fetchCustomerRepliesFromImap(req) {
       const emailData = parseRawEmail(raw);
       const result = await saveInboundCustomerReply(emailData, req);
       if (result.duplicate) duplicates += 1;
+      else if (result.general) general += 1;
       else if (result.ok) imported += 1;
       else skipped += 1;
     }
@@ -1284,7 +1491,7 @@ async function fetchCustomerRepliesFromImap(req) {
     try { await client.logout(); } catch (error) { /* ignore logout errors */ }
   }
 
-  const summary = { imported, duplicates, skipped, checked };
+  const summary = { imported, general, duplicates, skipped, checked };
   console.log('[IMAP] Abruf fertig', summary);
   return summary;
 }
@@ -1652,12 +1859,119 @@ app.post('/admin/fetch-mails', requireLogin, requireRole('owner', 'admin', 'mita
   try {
     const result = await fetchCustomerRepliesFromImap(req);
     addActivity(req, 'imap_replies_fetched', result);
-    const message = `E-Mails geprüft: ${result.checked}. Neu importiert: ${result.imported}. Bereits vorhanden: ${result.duplicates}. Nicht zugeordnet: ${result.skipped}.`;
+    const message = `E-Mails geprüft: ${result.checked}. Auftragsantworten: ${result.imported}. Allgemeine E-Mails: ${result.general || 0}. Bereits vorhanden: ${result.duplicates}. Nicht nutzbar: ${result.skipped}.`;
     res.redirect('/admin?mailSync=' + encodeURIComponent(message));
   } catch (error) {
     console.error('[IMAP] Abruf fehlgeschlagen:', error);
     res.redirect('/admin?mailError=' + encodeURIComponent(error.message || 'E-Mail-Abruf fehlgeschlagen.'));
   }
+});
+
+
+app.post('/admin/general-emails/:id/archive', requireLogin, requireRole('owner', 'admin', 'mitarbeiter'), verifyCsrf, async (req, res) => {
+  const updated = await updateGeneralEmail(req.params.id, email => ({ ...email, status: 'archiviert', archivedBy: req.session.username || 'Admin' }));
+  if (updated) addActivity(req, 'general_email_archived', { emailId: updated.id, subject: updated.subject });
+  res.redirect('/admin#general-emails');
+});
+
+app.post('/admin/general-emails/:id/done', requireLogin, requireRole('owner', 'admin', 'mitarbeiter'), verifyCsrf, async (req, res) => {
+  const updated = await updateGeneralEmail(req.params.id, email => ({ ...email, status: 'erledigt', doneBy: req.session.username || 'Admin' }));
+  if (updated) addActivity(req, 'general_email_done', { emailId: updated.id, subject: updated.subject });
+  res.redirect('/admin#general-emails');
+});
+
+app.post('/admin/general-emails/:id/assign', requireLogin, requireRole('owner', 'admin', 'mitarbeiter'), verifyCsrf, async (req, res) => {
+  const targetId = cleanText(req.body.requestId, 80);
+  const generalEmails = await readGeneralEmails({ includeArchived: true });
+  const email = generalEmails.find(item => item.id === req.params.id);
+  const anfragen = await readAnfragen();
+  const anfrage = anfragen.find(item => item.id === targetId);
+
+  if (!email || !anfrage) return res.redirect('/admin?mailError=' + encodeURIComponent('E-Mail oder Auftrag nicht gefunden.'));
+
+  const reply = {
+    id: crypto.randomUUID(),
+    sourceMessageId: email.sourceMessageId || email.id,
+    from: email.from || '-',
+    to: email.to || '-',
+    subject: email.subject || '(ohne Betreff)',
+    text: cleanReplyText(email.text || ''),
+    receivedAt: email.receivedAt || new Date().toISOString(),
+    receivedAtLabel: email.receivedAtLabel || formatBerlinDateTime(email.receivedAt ? new Date(email.receivedAt) : new Date()),
+    photoCount: Array.isArray(email.photos) ? email.photos.length : 0,
+    attachmentCount: email.attachmentCount || 0,
+    manuallyAssigned: true
+  };
+
+  anfrage.customerReplies = Array.isArray(anfrage.customerReplies) ? anfrage.customerReplies : [];
+  if (!anfrage.customerReplies.some(item => item.sourceMessageId === reply.sourceMessageId)) anfrage.customerReplies.unshift(reply);
+  anfrage.customerPhotos = Array.isArray(anfrage.customerPhotos) ? anfrage.customerPhotos : [];
+  if (Array.isArray(email.photos) && email.photos.length) anfrage.customerPhotos.unshift(...email.photos);
+
+  await createBackup('before-general-email-assign');
+  await writeAnfragen(anfragen);
+  await updateGeneralEmail(req.params.id, item => ({ ...item, status: 'zugeordnet', assignedToRequestId: anfrage.id, assignedBy: req.session.username || 'Admin' }));
+  addActivity(req, 'general_email_assigned', { emailId: email.id, requestId: anfrage.id, subject: email.subject });
+  res.redirect('/admin#request-' + encodeURIComponent(anfrage.id));
+});
+
+app.post('/admin/general-emails/:id/create-request', requireLogin, requireRole('owner', 'admin', 'mitarbeiter'), verifyCsrf, async (req, res) => {
+  const generalEmails = await readGeneralEmails({ includeArchived: true });
+  const email = generalEmails.find(item => item.id === req.params.id);
+  if (!email) return res.redirect('/admin?mailError=' + encodeURIComponent('E-Mail nicht gefunden.'));
+
+  const customerPhotos = Array.isArray(email.photos) ? email.photos : [];
+  const emailAddress = email.fromEmail || extractEmailAddress(email.from);
+  const name = email.fromName || extractDisplayName(email.from) || 'Allgemeine E-Mail';
+  const details = cleanReplyText(email.text || '');
+  const createdAt = new Date().toISOString();
+  const neueAnfrage = {
+    id: Date.now().toString(),
+    requestFingerprint: createRequestFingerprint({ name, email: emailAddress, details, subject: email.subject, sourceMessageId: email.sourceMessageId || email.id }),
+    createdAt,
+    name,
+    email: emailAddress,
+    telefon: '',
+    kategorie: 'Sonstiges',
+    nachricht: ['Quelle: Allgemeine E-Mail', `Betreff: ${email.subject || '-'}`, '', 'Details:', details || '-'].join('\n'),
+    adresse: '',
+    leistung: 'Sonstiges',
+    auftragsart: '',
+    groesse: '',
+    zeitraum: '',
+    budget: '-',
+    besichtigung: '',
+    erreichbarkeit: '',
+    kontaktart: 'E-Mail',
+    details: details || '',
+    customerPhotos,
+    beforePhotos: [],
+    afterPhotos: [],
+    internalNotes: [{ id: crypto.randomUUID(), text: 'Aus allgemeiner E-Mail erstellt.', createdAt, createdAtLabel: formatBerlinDateTime(createdAt), author: req.session.username || 'Admin' }],
+    customerReplies: [{
+      id: crypto.randomUUID(),
+      sourceMessageId: email.sourceMessageId || email.id,
+      from: email.from || '-',
+      to: email.to || '-',
+      subject: email.subject || '(ohne Betreff)',
+      text: details || '(keine Textantwort erkannt)',
+      receivedAt: email.receivedAt || createdAt,
+      receivedAtLabel: email.receivedAtLabel || formatBerlinDateTime(createdAt),
+      photoCount: customerPhotos.length,
+      attachmentCount: email.attachmentCount || 0,
+      createdFromGeneralEmail: true
+    }],
+    status: 'Neu',
+    datum: formatBerlinDateTime(createdAt)
+  };
+
+  const anfragen = await readAnfragen();
+  anfragen.unshift(neueAnfrage);
+  await createBackup('before-general-email-create-request');
+  await writeAnfragen(anfragen);
+  await updateGeneralEmail(req.params.id, item => ({ ...item, status: 'umgewandelt', createdRequestId: neueAnfrage.id, convertedBy: req.session.username || 'Admin' }));
+  addActivity(req, 'general_email_converted_to_request', { emailId: email.id, requestId: neueAnfrage.id, subject: email.subject });
+  res.redirect('/admin#request-' + encodeURIComponent(neueAnfrage.id));
 });
 
 app.get('/admin', requireLogin, async (req, res) => {
@@ -1675,19 +1989,23 @@ app.get('/admin', requireLogin, async (req, res) => {
     : anfragen;
 
   const permissions = getPermissions(req.session.role);
+  const generalEmails = await readGeneralEmails();
+
   res.render('admin', {
     anfragen: gefiltert,
+    allAnfragen: anfragen,
+    generalEmails,
     suche: req.query.suche || '',
     username: req.session.username || 'Admin',
-    userRole: permissions.role,
-    roleLabel: permissions.roleLabel,
-    permissions,
+    role: req.session.role || 'admin',
+    roleLabel: roleLabel(req.session.role),
+    permissions: getPermissions(req.session.role),
     csrfToken: createCsrfToken(req),
-    activityLog: permissions.canViewActivity ? readActivityLog(10) : [],
-    backups: permissions.canDownloadBackups ? listBackups(20) : [],
+    backups: listBackups(),
+    activityLog: readActivityLog(12),
+    imapReady: imapEnabled(),
     mailSync: req.query.mailSync || '',
-    mailError: req.query.mailError || '',
-    imapReady: imapEnabled()
+    mailError: req.query.mailError || ''
   });
 });
 

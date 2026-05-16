@@ -475,22 +475,52 @@
                       </summary>
 
                       <div class="request-expanded-content">
+                    <% if (permissions && permissions.canWriteNotes) { %>
+                      <form id="request-inline-edit-<%= a.id %>" class="inline-edit-master-form" action="/admin/request/<%= a.id %>/update" method="POST">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                        <input type="hidden" name="name" value="<%= a.name || '' %>">
+                        <input type="hidden" name="email" value="<%= a.email || '' %>">
+                        <input type="hidden" name="telefon" value="<%= a.telefon || '' %>">
+                        <input type="hidden" name="kategorie" value="<%= a.kategorie || a.leistung || leistung || '' %>">
+                        <input type="hidden" name="budget" value="<%= a.budget || '' %>">
+                        <input type="hidden" name="adresse" value="<%= a.adresse || getValueFrom(a, 'Adresse / Ort') || '' %>">
+                        <input type="hidden" name="auftragsart" value="<%= a.auftragsart || getValueFrom(a, 'Auftragsart') || '' %>">
+                        <input type="hidden" name="groesse" value="<%= a.groesse || getValueFrom(a, 'Grundstücksgröße') || '' %>">
+                        <input type="hidden" name="zeitraum" value="<%= a.zeitraum || getValueFrom(a, 'Zeitraum') || '' %>">
+                        <input type="hidden" name="besichtigung" value="<%= a.besichtigung || getValueFrom(a, 'Besichtigung') || '' %>">
+                        <input type="hidden" name="erreichbarkeit" value="<%= a.erreichbarkeit || getValueFrom(a, 'Erreichbarkeit') || '' %>">
+                        <input type="hidden" name="kontaktart" value="<%= a.kontaktart || getValueFrom(a, 'Bevorzugte Kontaktart') || '' %>">
+                        <input type="hidden" name="details" value="<%= detailsText || '' %>">
+                      </form>
+                    <% } %>
                     <div class="admin-card-grid">
-                      <div class="mini-box primary-mini">
-                        <span>Leistung</span>
-                        <strong><%= leistung %></strong>
+                      <div class="mini-box primary-mini editable-data-slot">
+                        <div>
+                          <span>Leistung</span>
+                          <strong><%= leistung %></strong>
+                        </div>
+                        <% if (permissions && permissions.canWriteNotes) { %><button type="button" class="inline-edit-pencil" data-edit-form="request-inline-edit-<%= a.id %>" data-edit-field="kategorie" data-edit-label="Leistung" data-edit-value="<%= leistung || '' %>" aria-label="Leistung bearbeiten">✎</button><% } %>
                       </div>
-                      <div class="mini-box">
-                        <span>Budget</span>
-                        <strong><%= formattedBudget %></strong>
+                      <div class="mini-box editable-data-slot">
+                        <div>
+                          <span>Budget</span>
+                          <strong><%= formattedBudget %></strong>
+                        </div>
+                        <% if (permissions && permissions.canWriteNotes) { %><button type="button" class="inline-edit-pencil" data-edit-form="request-inline-edit-<%= a.id %>" data-edit-field="budget" data-edit-label="Budget" data-edit-value="<%= a.budget || '' %>" aria-label="Budget bearbeiten">✎</button><% } %>
                       </div>
-                      <div class="mini-box">
-                        <span>Telefon</span>
-                        <strong><%= a.telefon || '-' %></strong>
+                      <div class="mini-box editable-data-slot">
+                        <div>
+                          <span>Telefon</span>
+                          <strong><%= a.telefon || '-' %></strong>
+                        </div>
+                        <% if (permissions && permissions.canWriteNotes) { %><button type="button" class="inline-edit-pencil" data-edit-form="request-inline-edit-<%= a.id %>" data-edit-field="telefon" data-edit-label="Telefon" data-edit-value="<%= a.telefon || '' %>" aria-label="Telefon bearbeiten">✎</button><% } %>
                       </div>
-                      <div class="mini-box">
-                        <span>E-Mail</span>
-                        <strong><%= a.email || '-' %></strong>
+                      <div class="mini-box editable-data-slot">
+                        <div>
+                          <span>E-Mail</span>
+                          <strong><%= a.email || '-' %></strong>
+                        </div>
+                        <% if (permissions && permissions.canWriteNotes) { %><button type="button" class="inline-edit-pencil" data-edit-form="request-inline-edit-<%= a.id %>" data-edit-field="email" data-edit-label="E-Mail" data-edit-value="<%= a.email || '' %>" aria-label="E-Mail bearbeiten">✎</button><% } %>
                       </div>
                     </div>
 
@@ -537,53 +567,32 @@
                     <div class="admin-section-block">
                       <h4>Auftragsdaten</h4>
                       <div class="data-list">
-                        <div><span>Adresse / Ort</span><strong><%= a.adresse || getValueFrom(a, 'Adresse / Ort') %></strong></div>
-                        <div><span>Auftragsart</span><strong><%= a.auftragsart || getValueFrom(a, 'Auftragsart') %></strong></div>
-                        <div><span>Grundstücksgröße</span><strong><%= a.groesse || getValueFrom(a, 'Grundstücksgröße') %></strong></div>
-                        <div><span>Zeitraum</span><strong><%= a.zeitraum || getValueFrom(a, 'Zeitraum') %></strong></div>
+                        <div class="editable-data-row"><div><span>Adresse / Ort</span><strong><%= a.adresse || getValueFrom(a, 'Adresse / Ort') %></strong></div><% if (permissions && permissions.canWriteNotes) { %><button type="button" class="inline-edit-pencil small" data-edit-form="request-inline-edit-<%= a.id %>" data-edit-field="adresse" data-edit-label="Adresse / Ort" data-edit-value="<%= a.adresse || getValueFrom(a, 'Adresse / Ort') || '' %>" aria-label="Adresse / Ort bearbeiten">✎</button><% } %></div>
+                        <div class="editable-data-row"><div><span>Auftragsart</span><strong><%= a.auftragsart || getValueFrom(a, 'Auftragsart') %></strong></div><% if (permissions && permissions.canWriteNotes) { %><button type="button" class="inline-edit-pencil small" data-edit-form="request-inline-edit-<%= a.id %>" data-edit-field="auftragsart" data-edit-label="Auftragsart" data-edit-value="<%= a.auftragsart || getValueFrom(a, 'Auftragsart') || '' %>" aria-label="Auftragsart bearbeiten">✎</button><% } %></div>
+                        <div class="editable-data-row"><div><span>Grundstücksgröße</span><strong><%= a.groesse || getValueFrom(a, 'Grundstücksgröße') %></strong></div><% if (permissions && permissions.canWriteNotes) { %><button type="button" class="inline-edit-pencil small" data-edit-form="request-inline-edit-<%= a.id %>" data-edit-field="groesse" data-edit-label="Grundstücksgröße" data-edit-value="<%= a.groesse || getValueFrom(a, 'Grundstücksgröße') || '' %>" aria-label="Grundstücksgröße bearbeiten">✎</button><% } %></div>
+                        <div class="editable-data-row"><div><span>Zeitraum</span><strong><%= a.zeitraum || getValueFrom(a, 'Zeitraum') %></strong></div><% if (permissions && permissions.canWriteNotes) { %><button type="button" class="inline-edit-pencil small" data-edit-form="request-inline-edit-<%= a.id %>" data-edit-field="zeitraum" data-edit-label="Zeitraum" data-edit-value="<%= a.zeitraum || getValueFrom(a, 'Zeitraum') || '' %>" aria-label="Zeitraum bearbeiten">✎</button><% } %></div>
                       </div>
                     </div>
 
                     <div class="admin-section-block muted-block">
                       <h4>Kontakt & Planung</h4>
                       <div class="data-list two">
-                        <div><span>Besichtigung</span><strong><%= a.besichtigung || getValueFrom(a, 'Besichtigung') %></strong></div>
-                        <div><span>Erreichbarkeit</span><strong><%= a.erreichbarkeit || getValueFrom(a, 'Erreichbarkeit') %></strong></div>
-                        <div><span>Kontaktart</span><strong><%= a.kontaktart || getValueFrom(a, 'Bevorzugte Kontaktart') %></strong></div>
+                        <div class="editable-data-row"><div><span>Besichtigung</span><strong><%= a.besichtigung || getValueFrom(a, 'Besichtigung') %></strong></div><% if (permissions && permissions.canWriteNotes) { %><button type="button" class="inline-edit-pencil small" data-edit-form="request-inline-edit-<%= a.id %>" data-edit-field="besichtigung" data-edit-label="Besichtigung" data-edit-value="<%= a.besichtigung || getValueFrom(a, 'Besichtigung') || '' %>" aria-label="Besichtigung bearbeiten">✎</button><% } %></div>
+                        <div class="editable-data-row"><div><span>Erreichbarkeit</span><strong><%= a.erreichbarkeit || getValueFrom(a, 'Erreichbarkeit') %></strong></div><% if (permissions && permissions.canWriteNotes) { %><button type="button" class="inline-edit-pencil small" data-edit-form="request-inline-edit-<%= a.id %>" data-edit-field="erreichbarkeit" data-edit-label="Erreichbarkeit" data-edit-value="<%= a.erreichbarkeit || getValueFrom(a, 'Erreichbarkeit') || '' %>" aria-label="Erreichbarkeit bearbeiten">✎</button><% } %></div>
+                        <div class="editable-data-row"><div><span>Kontaktart</span><strong><%= a.kontaktart || getValueFrom(a, 'Bevorzugte Kontaktart') %></strong></div><% if (permissions && permissions.canWriteNotes) { %><button type="button" class="inline-edit-pencil small" data-edit-form="request-inline-edit-<%= a.id %>" data-edit-field="kontaktart" data-edit-label="Kontaktart" data-edit-value="<%= a.kontaktart || getValueFrom(a, 'Bevorzugte Kontaktart') || '' %>" aria-label="Kontaktart bearbeiten">✎</button><% } %></div>
                       </div>
                     </div>
 
                     <% if (permissions && permissions.canWriteNotes) { %>
-                      <details class="collapsible-admin-block request-edit-block">
-                        <summary>Auftragsdaten bearbeiten</summary>
-                        <div class="collapsible-admin-content">
-                          <p class="internal-note-hint">Hier kannst du fehlende oder falsche Angaben direkt im Dashboard ergänzen. Kundenantworten können fehlende Felder außerdem automatisch ausfüllen, wenn Angaben klar genannt werden.</p>
-                          <form class="request-edit-form" action="/admin/request/<%= a.id %>/update" method="POST">
-                            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                            <div class="request-edit-grid">
-                              <label><span>Name</span><input name="name" value="<%= a.name || '' %>" required></label>
-                              <label><span>E-Mail</span><input name="email" type="email" value="<%= a.email || '' %>"></label>
-                              <label><span>Telefon</span><input name="telefon" value="<%= a.telefon || '' %>"></label>
-                              <label><span>Leistung</span><input name="kategorie" value="<%= a.kategorie || a.leistung || leistung || '' %>"></label>
-                              <label><span>Budget</span><input name="budget" value="<%= a.budget || '' %>"></label>
-                              <label><span>Adresse / Ort</span><input name="adresse" value="<%= a.adresse || getValueFrom(a, 'Adresse / Ort') || '' %>"></label>
-                              <label><span>Auftragsart</span><input name="auftragsart" value="<%= a.auftragsart || getValueFrom(a, 'Auftragsart') || '' %>"></label>
-                              <label><span>Grundstücksgröße</span><input name="groesse" value="<%= a.groesse || getValueFrom(a, 'Grundstücksgröße') || '' %>"></label>
-                              <label><span>Zeitraum</span><input name="zeitraum" value="<%= a.zeitraum || getValueFrom(a, 'Zeitraum') || '' %>"></label>
-                              <label><span>Besichtigung</span><input name="besichtigung" value="<%= a.besichtigung || getValueFrom(a, 'Besichtigung') || '' %>"></label>
-                              <label><span>Erreichbarkeit</span><input name="erreichbarkeit" value="<%= a.erreichbarkeit || getValueFrom(a, 'Erreichbarkeit') || '' %>"></label>
-                              <label><span>Kontaktart</span><input name="kontaktart" value="<%= a.kontaktart || getValueFrom(a, 'Bevorzugte Kontaktart') || '' %>"></label>
-                            </div>
-                            <label class="full-edit-field"><span>Details / Kundenwunsch</span><textarea name="details"><%= detailsText || '' %></textarea></label>
-                            <button type="submit">Auftragsdaten speichern</button>
-                          </form>
-                        </div>
-                      </details>
+                      <p class="inline-edit-help">Klicke auf das Stift-Symbol ✎ neben einem Feld, um es direkt zu bearbeiten.</p>
                     <% } %>
 
-                    <details class="request-details-clean">
+                    <details class="request-details-clean editable-details-block">
                       <summary>Details zum Auftrag anzeigen</summary>
-                      <p><%= detailsText || '-' %></p>
+                      <div class="details-edit-row">
+                        <p><%= detailsText || '-' %></p>
+                        <% if (permissions && permissions.canWriteNotes) { %><button type="button" class="inline-edit-pencil" data-edit-form="request-inline-edit-<%= a.id %>" data-edit-field="details" data-edit-label="Details / Kundenwunsch" data-edit-value="<%= detailsText || '' %>" data-edit-multiline="true" aria-label="Details bearbeiten">✎</button><% } %>
+                      </div>
                     </details>
 
                     <% const replies = asArray(a.customerReplies); %>
@@ -939,6 +948,28 @@
 
       updateTemplates();
       updateNotify();
+    });
+
+
+    document.querySelectorAll('.inline-edit-pencil').forEach((button) => {
+      button.addEventListener('click', () => {
+        const form = document.getElementById(button.dataset.editForm);
+        if (!form) return;
+        const field = button.dataset.editField;
+        const input = form.querySelector(`[name="${field}"]`);
+        if (!input) return;
+        const label = button.dataset.editLabel || field;
+        const currentValue = input.value || button.dataset.editValue || '';
+        let nextValue;
+        if (button.dataset.editMultiline === 'true') {
+          nextValue = prompt(`${label} bearbeiten:`, currentValue);
+        } else {
+          nextValue = prompt(`${label} bearbeiten:`, currentValue);
+        }
+        if (nextValue === null) return;
+        input.value = nextValue.trim();
+        form.submit();
+      });
     });
 
 

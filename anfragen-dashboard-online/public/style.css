@@ -2344,3 +2344,72 @@ pre { white-space: pre-wrap; margin: 0; font-family: inherit; color: var(--muted
   .calendar-form-grid,
   .appointment-fieldset .appointment-grid { grid-template-columns: 1fr; }
 }
+
+/* Inline-Bearbeitung direkt an jedem Datenfeld */
+.inline-edit-master-form {
+  display: none;
+}
+.editable-data-slot,
+.editable-data-row,
+.details-edit-row {
+  position: relative;
+}
+.editable-data-slot {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.editable-data-slot > div,
+.editable-data-row > div,
+.details-edit-row > p {
+  min-width: 0;
+  flex: 1;
+}
+.editable-data-row {
+  display: flex !important;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.inline-edit-pencil {
+  width: 2rem;
+  height: 2rem;
+  min-width: 2rem;
+  border: 1px solid rgba(22, 78, 48, 0.16);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #174b2b;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 0.35rem 0.9rem rgba(22, 78, 48, 0.08);
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.inline-edit-pencil:hover,
+.inline-edit-pencil:focus-visible {
+  background: #eaf6e9;
+  border-color: rgba(22, 78, 48, 0.35);
+  transform: translateY(-1px);
+  outline: none;
+}
+.inline-edit-pencil.small {
+  width: 1.75rem;
+  height: 1.75rem;
+  min-width: 1.75rem;
+  font-size: 0.85rem;
+}
+.inline-edit-help {
+  margin: 0.4rem 0 0.85rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 1rem;
+  background: rgba(234, 246, 233, 0.95);
+  color: #31533d;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+.details-edit-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}

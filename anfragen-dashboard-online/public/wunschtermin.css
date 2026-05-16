@@ -1,119 +1,148 @@
-/* Schönere Wunschtermin-Auswahl auf der Kundenwebsite */
-.appointment-pro {
+/* Kompakte Wunschtermin-Auswahl auf der Kundenwebsite */
+.appointment-pro,
+.gw-appointment-compact {
   background: linear-gradient(135deg, rgba(244, 252, 240, 0.96), rgba(255, 252, 244, 0.96));
   border: 1px solid rgba(31, 92, 55, 0.16);
-  border-radius: 22px;
-  padding: 22px;
-  box-shadow: 0 18px 45px rgba(20, 70, 38, 0.08);
+  border-radius: 18px;
+  padding: 14px 16px;
+  box-shadow: 0 12px 32px rgba(20, 70, 38, 0.06);
 }
 
-.appointment-pro legend {
-  padding: 0 10px;
+.appointment-pro legend,
+.gw-appointment-compact legend {
+  padding: 0 8px;
 }
 
-.appointment-card {
+.appointment-card,
+.gw-appointment-row {
   display: grid;
-  grid-template-columns: minmax(220px, 0.8fr) minmax(280px, 1.2fr);
-  gap: 18px;
-  align-items: stretch;
-  margin-top: 14px;
+  grid-template-columns: minmax(150px, 180px) minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  margin-top: 8px;
 }
 
 .appointment-date-box,
-.appointment-times-box {
-  background: rgba(255, 255, 255, 0.9);
+.appointment-times-box,
+.gw-date-box,
+.gw-time-box {
+  background: rgba(255, 255, 255, 0.94);
   border: 1px solid rgba(22, 80, 45, 0.14);
-  border-radius: 18px;
-  padding: 16px;
+  border-radius: 16px;
+  padding: 12px;
+  min-height: 0;
 }
 
 .appointment-date-box span,
-.appointment-times-head span {
+.appointment-times-head span,
+.gw-date-box span,
+.gw-time-head span {
   display: block;
   font-weight: 900;
   color: #173f28;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  font-size: 0.78rem;
-  margin-bottom: 8px;
+  font-size: 0.68rem;
+  margin-bottom: 6px;
 }
 
-.appointment-date-box input[type="date"] {
+.appointment-date-box input[type="date"],
+.gw-date-box input[type="date"] {
   width: 100%;
-  border: 2px solid rgba(29, 91, 55, 0.2);
-  border-radius: 14px;
-  padding: 14px 14px;
+  min-height: 42px;
+  height: 42px;
+  border: 1.5px solid rgba(29, 91, 55, 0.18);
+  border-radius: 12px;
+  padding: 0 12px;
   font: inherit;
+  font-size: 14px;
   font-weight: 800;
   color: #0d2f1d;
   background: #fff;
   outline: none;
 }
 
-.appointment-date-box input[type="date"]:focus {
+.appointment-date-box input[type="date"]:focus,
+.gw-date-box input[type="date"]:focus {
   border-color: #1e6f43;
-  box-shadow: 0 0 0 4px rgba(30, 111, 67, 0.14);
+  box-shadow: 0 0 0 3px rgba(30, 111, 67, 0.12);
 }
 
-.appointment-times-head {
+.appointment-times-head,
+.gw-time-head {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   align-items: baseline;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .appointment-times-head small,
-.slot-hint {
+.slot-hint,
+.gw-time-head small {
   color: #55745e;
-  font-size: 0.9rem;
-  line-height: 1.35;
+  font-size: 0.72rem;
+  line-height: 1.25;
 }
 
-.slot-card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: 10px;
+.slot-card-grid,
+.compact-slots.slot-card-grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
 }
 
-.slot-card {
-  border: 2px solid rgba(26, 94, 54, 0.16);
+.slot-card,
+.compact-slots .slot-card,
+.slot-card-grid button {
+  border: 1px solid rgba(26, 94, 54, 0.16);
   background: #f8fff8;
-  border-radius: 16px;
-  padding: 12px 8px;
+  border-radius: 999px;
+  padding: 7px 10px;
+  min-height: 34px;
   cursor: pointer;
   color: #123b23;
   text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+  line-height: 1;
   transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease, background 0.14s ease;
 }
 
 .slot-card strong {
-  display: block;
-  font-size: 1.05rem;
-  line-height: 1.1;
+  display: inline;
+  font-size: 13px;
+  line-height: 1;
 }
 
 .slot-card span {
-  display: block;
-  margin-top: 5px;
-  font-size: 0.75rem;
+  display: inline;
+  margin: 0;
+  font-size: 9px;
   font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
   color: #2f7950;
 }
 
 .slot-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   border-color: #1e6f43;
-  box-shadow: 0 10px 22px rgba(26, 94, 54, 0.14);
+  box-shadow: 0 8px 16px rgba(26, 94, 54, 0.12);
 }
 
 .slot-card.is-selected {
   background: #185c35;
   border-color: #185c35;
   color: #fff;
-  box-shadow: 0 12px 28px rgba(24, 92, 53, 0.25);
+  box-shadow: 0 8px 18px rgba(24, 92, 53, 0.22);
 }
 
 .slot-card.is-selected span {
@@ -137,21 +166,25 @@
 
 .slot-empty,
 .slot-loading {
-  grid-column: 1 / -1;
-  padding: 18px;
-  border-radius: 16px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 14px;
   background: rgba(248, 246, 237, 0.9);
   color: #55745e;
   font-weight: 700;
+  font-size: 12px;
+  line-height: 1.35;
   border: 1px dashed rgba(29, 91, 55, 0.22);
 }
 
 @media (max-width: 760px) {
-  .appointment-card {
+  .appointment-card,
+  .gw-appointment-row {
     grid-template-columns: 1fr;
   }
 
-  .appointment-times-head {
+  .appointment-times-head,
+  .gw-time-head {
     flex-direction: column;
   }
 }

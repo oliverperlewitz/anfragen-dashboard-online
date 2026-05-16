@@ -1,0 +1,128 @@
+/* Rechnung & Zahlung – browserbasierte PDF-Erstellung ohne server.js */
+.invoice-lite-panel {
+  margin: 14px 0;
+  border: 1px solid rgba(25, 78, 46, 0.14);
+  background: linear-gradient(180deg, #fffdf7 0%, #f8f8f0 100%);
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(25, 50, 34, 0.06);
+}
+.invoice-lite-panel summary {
+  cursor: pointer;
+  padding: 14px 16px;
+  font-weight: 950;
+  color: #123b25;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  list-style: none;
+}
+.invoice-lite-panel summary::-webkit-details-marker { display: none; }
+.invoice-lite-panel summary::after {
+  content: "▾";
+  font-size: 12px;
+  color: #6d8068;
+}
+.invoice-lite-panel[open] summary::after { transform: rotate(180deg); }
+.invoice-lite-body {
+  padding: 0 16px 16px;
+  display: grid;
+  gap: 14px;
+}
+.invoice-lite-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.invoice-lite-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.invoice-lite-field {
+  display: grid;
+  gap: 6px;
+}
+.invoice-lite-field span,
+.invoice-lite-items-head span {
+  color: #6e8068;
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  font-weight: 950;
+}
+.invoice-lite-panel input,
+.invoice-lite-panel select,
+.invoice-lite-panel textarea {
+  width: 100%;
+  border: 1px solid rgba(25, 78, 46, 0.16);
+  border-radius: 14px;
+  min-height: 42px;
+  padding: 0 12px;
+  background: #fff;
+  color: #102f1d;
+  font: inherit;
+  box-sizing: border-box;
+}
+.invoice-lite-panel textarea {
+  min-height: 78px;
+  padding: 12px;
+  resize: vertical;
+}
+.invoice-lite-items {
+  display: grid;
+  gap: 8px;
+}
+.invoice-lite-items-head,
+.invoice-lite-item-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.9fr) 82px 115px 36px;
+  gap: 8px;
+  align-items: end;
+}
+.invoice-lite-remove {
+  width: 36px;
+  height: 42px;
+  border: 0;
+  border-radius: 12px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 950;
+  cursor: pointer;
+}
+.invoice-lite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.invoice-lite-actions button,
+.invoice-lite-actions a {
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 16px;
+  background: #1f5d38;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 950;
+  cursor: pointer;
+  min-height: 42px;
+}
+.invoice-lite-actions .secondary {
+  background: #fff;
+  color: #1f5d38;
+  border: 1px solid rgba(31, 93, 56, .18);
+}
+.invoice-lite-note {
+  margin: 0;
+  color: #667466;
+  font-size: 12px;
+  line-height: 1.45;
+}
+@media (max-width: 760px) {
+  .invoice-lite-grid,
+  .invoice-lite-grid.three,
+  .invoice-lite-items-head,
+  .invoice-lite-item-row {
+    grid-template-columns: 1fr;
+  }
+  .invoice-lite-remove { width: 100%; }
+}

@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard</title>
   <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="/invoice-lite.css">
 </head>
 <body class="admin-body admin-pro-body">
   <% 
@@ -1285,6 +1284,5 @@
   </script>
   <script src="/admin-tabs.js" defer></script>
   <script src="/inline-edit.js" defer></script>
-  <script src="/invoice-lite.js" defer></script>
 </body>
 </html>

@@ -11,7 +11,7 @@ Erlaubt sind:
 - PNG
 - WEBP
 
-Standard-Maximalgröße pro Bild: 5 MB.
+Standard-Maximalgröße pro Bild: 10 MB.
 
 ## Neu im Admin-Dashboard
 
@@ -59,3 +59,8 @@ Nicht ersetzen:
 - .env
 - data
 - node_modules
+
+
+## Speicher-Hinweis
+
+Bei 10 MB pro Bild wird Speicher schneller verbraucht. Für viele Kundenfotos ist langfristig ein Cloud-Speicher besser, z. B. Cloudinary, S3 oder Supabase Storage. Die Datenbank sollte dann nur den Foto-Link speichern.

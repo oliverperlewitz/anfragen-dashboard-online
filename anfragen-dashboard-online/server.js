@@ -19,7 +19,7 @@ const DATA_FILE = path.join(DATA_DIR, 'anfragen.json');
 const ACTIVITY_LOG_FILE = path.join(DATA_DIR, 'activity-log.json');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 
-const MAX_PHOTO_SIZE_MB = Number(process.env.MAX_PHOTO_SIZE_MB || 5);
+const MAX_PHOTO_SIZE_MB = Number(process.env.MAX_PHOTO_SIZE_MB || 10);
 const MAX_PHOTO_SIZE_BYTES = MAX_PHOTO_SIZE_MB * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 

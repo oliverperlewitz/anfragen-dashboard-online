@@ -2039,8 +2039,6 @@ app.post('/anfrage', formLimiter, handleUpload(upload.array('customerPhotos', 5)
     return res.status(409).send('Dieser Termin wurde gerade vergeben. Bitte gehe zurück und wähle einen anderen freien Termin aus.');
   }
 
-  const zahlungswunsch = data.zahlungswunsch || '';
-
   const budgetText = budget ? `${budget} €` : '-';
 
   const nachricht = [

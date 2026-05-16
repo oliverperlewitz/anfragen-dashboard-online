@@ -908,6 +908,45 @@ function stripHtmlToText(html) {
     .trim();
 }
 
+function stripQuotedReply(value) {
+  let text = fixMojibake(String(value || ''))
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+$/gm, '')
+    .trim();
+
+  const cutPatterns = [
+    /\n\s*>+\s*GrünWerk Gartenbau\s*<[^>]+>\s*schrieb\s+am\s+/i,
+    /\n\s*GrünWerk Gartenbau\s*<[^>]+>\s*schrieb\s+am\s+/i,
+    /\n\s*Am\s+.+\s+schrieb\s+.+:/i,
+    /\n\s*On\s+.+\s+wrote:/i,
+    /\n\s*-----Original Message-----/i,
+    /\n\s*Von:\s+/i,
+    /\n\s*From:\s+/i
+  ];
+
+  for (const pattern of cutPatterns) {
+    const match = text.match(pattern);
+    if (match && typeof match.index === 'number' && match.index > 0) {
+      text = text.slice(0, match.index).trim();
+      break;
+    }
+  }
+
+  text = text
+    .split('\n')
+    .filter(line => !line.trim().startsWith('>'))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return text;
+}
+
+function summarizeCustomerReply(value) {
+  const text = stripQuotedReply(value);
+  return cleanMultiline(text || value || '(keine Textantwort erkannt)', 3000);
+}
+
 function extractRequestCodes(...texts) {
   const combined = texts.filter(Boolean).map(String).join('\n');
   const codes = [];
@@ -960,7 +999,7 @@ function findAnfrageByCode(anfragen, codes) {
 }
 
 async function saveInboundCustomerReply(emailData, req) {
-  const cleanTextBody = cleanText(emailData.text || stripHtmlToText(emailData.html), 8000);
+  const cleanTextBody = summarizeCustomerReply(emailData.text || stripHtmlToText(emailData.html));
   const codes = extractRequestCodes(emailData.subject, cleanTextBody, emailData.html);
   const anfragen = await readAnfragen();
   const anfrage = findAnfrageByCode(anfragen, codes);
@@ -1100,6 +1139,37 @@ function parseEmailHeaders(rawHeaders) {
   return headers;
 }
 
+function decodeQuotedPrintableUtf8(value) {
+  const source = String(value || '').replace(/=\r?\n/g, '');
+  const bytes = [];
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === '=' && /^[A-Fa-f0-9]{2}$/.test(source.slice(index + 1, index + 3))) {
+      bytes.push(parseInt(source.slice(index + 1, index + 3), 16));
+      index += 2;
+      continue;
+    }
+    const charBytes = Buffer.from(char, 'utf8');
+    for (const byte of charBytes) bytes.push(byte);
+  }
+
+  const buffer = Buffer.from(bytes);
+  const decoded = buffer.toString('utf8');
+  return decoded.includes('�') ? buffer.toString('latin1') : decoded;
+}
+
+function fixMojibake(value) {
+  const text = String(value || '');
+  if (!/[ÃÂâ]/.test(text)) return text;
+  try {
+    const fixed = Buffer.from(text, 'latin1').toString('utf8');
+    return fixed.includes('�') ? text : fixed;
+  } catch (error) {
+    return text;
+  }
+}
+
 function decodeTransferBody(body, encoding) {
   const enc = String(encoding || '').toLowerCase();
   const text = String(body || '').replace(/^\s+|\s+$/g, '');
@@ -1107,11 +1177,9 @@ function decodeTransferBody(body, encoding) {
     try { return Buffer.from(text.replace(/\s/g, ''), 'base64').toString('utf8'); } catch (error) { return text; }
   }
   if (enc === 'quoted-printable') {
-    return text
-      .replace(/=\r?\n/g, '')
-      .replace(/=([A-Fa-f0-9]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+    return decodeQuotedPrintableUtf8(text);
   }
-  return String(body || '').trim();
+  return fixMojibake(String(body || '').trim());
 }
 
 function getHeaderParam(headerValue, paramName) {

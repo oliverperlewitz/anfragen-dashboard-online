@@ -12,6 +12,7 @@ const rateLimit = require('express-rate-limit');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const tls = require('tls');
+const { ImapFlow } = require('imapflow');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1006,105 +1007,58 @@ function imapEnabled() {
   return Boolean(process.env.IMAP_HOST && process.env.IMAP_USER && process.env.IMAP_PASS);
 }
 
-function quoteImap(value) {
-  return '"' + String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
-}
-
 function getImapTimeoutMs() {
   const value = Number(process.env.IMAP_TIMEOUT_MS || 60000);
   if (!Number.isFinite(value) || value < 5000) return 60000;
   return value;
 }
 
-function waitForBuffer(bufferRef, predicate, timeoutMs = getImapTimeoutMs(), label = 'IMAP') {
-  return new Promise((resolve, reject) => {
-    const started = Date.now();
-    const timer = setInterval(() => {
-      try {
-        const value = bufferRef();
-        if (predicate(value)) {
-          clearInterval(timer);
-          resolve(value);
-          return;
-        }
-        if (Date.now() - started > timeoutMs) {
-          clearInterval(timer);
-          reject(new Error(`${label} timeout nach ${timeoutMs}ms`));
-        }
-      } catch (error) {
-        clearInterval(timer);
-        reject(error);
-      }
-    }, 50);
-  });
+function getImapFetchLimit() {
+  const value = Number(process.env.IMAP_FETCH_LIMIT || 30);
+  if (!Number.isFinite(value) || value < 1) return 30;
+  return Math.min(value, 100);
 }
 
-async function createSimpleImapClient() {
+async function createImapFlowClient() {
   const host = process.env.IMAP_HOST || 'imap.strato.de';
   const port = Number(process.env.IMAP_PORT || 993);
   const secure = String(process.env.IMAP_SECURE || 'true').toLowerCase() !== 'false';
   const timeoutMs = getImapTimeoutMs();
-  let buffer = '';
-  let tagCounter = 1;
 
-  const socket = secure
-    ? tls.connect({ host, port, servername: host })
-    : require('net').connect({ host, port });
-
-  socket.setEncoding('utf8');
-  socket.on('data', chunk => { buffer += chunk; });
-
-  await new Promise((resolve, reject) => {
-    socket.once(secure ? 'secureConnect' : 'connect', resolve);
-    socket.once('error', reject);
-    setTimeout(() => reject(new Error(`IMAP-Verbindung timeout nach ${timeoutMs}ms`)), timeoutMs);
+  console.log('[IMAP] Verbindung wird aufgebaut', {
+    host,
+    port,
+    secure,
+    user: process.env.IMAP_USER,
+    timeoutMs
   });
 
-  await waitForBuffer(() => buffer, text => /\* OK/i.test(text), timeoutMs, 'IMAP Begrüßung');
+  const client = new ImapFlow({
+    host,
+    port,
+    secure,
+    auth: {
+      user: process.env.IMAP_USER,
+      pass: process.env.IMAP_PASS
+    },
+    logger: false,
+    connectionTimeout: timeoutMs,
+    greetingTimeout: timeoutMs,
+    socketTimeout: Math.max(timeoutMs, 120000)
+  });
 
-  async function command(commandText, timeoutMs = getImapTimeoutMs()) {
-    const tag = 'A' + String(tagCounter++).padStart(4, '0');
-    const start = buffer.length;
-    socket.write(`${tag} ${commandText}\r\n`);
-    const all = await waitForBuffer(
-      () => buffer,
-      text => new RegExp(`\\r?\\n${tag} (OK|NO|BAD)`, 'i').test(text.slice(start)),
-      timeoutMs,
-      `IMAP ${commandText.split(' ')[0]}`
-    );
-    const response = all.slice(start);
-    if (new RegExp(`\\r?\\n${tag} (NO|BAD)`, 'i').test(response)) {
-      throw new Error(`IMAP-Befehl fehlgeschlagen: ${commandText} :: ${response.slice(-500)}`);
-    }
-    return response;
+  await client.connect();
+  console.log('[IMAP] Login erfolgreich');
+  return client;
+}
+
+async function downloadRawEmail(client, uid) {
+  const response = await client.download(uid, null, { uid: true });
+  const chunks = [];
+  for await (const chunk of response.content) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
-
-  return {
-    async login() {
-      await command(`LOGIN ${quoteImap(process.env.IMAP_USER)} ${quoteImap(process.env.IMAP_PASS)}`, timeoutMs);
-    },
-    async selectInbox() {
-      await command('SELECT INBOX', timeoutMs);
-    },
-    async searchAll() {
-      const response = await command('SEARCH ALL', timeoutMs);
-      const match = response.match(/\* SEARCH([^\r\n]*)/i);
-      if (!match) return [];
-      return match[1].trim().split(/\s+/).filter(Boolean).map(Number).filter(Boolean);
-    },
-    async fetchRaw(id) {
-      const response = await command(`FETCH ${id} BODY.PEEK[]`, Math.max(timeoutMs, 60000));
-      const literal = response.match(/\{(\d+)\}\r?\n/);
-      if (!literal) return '';
-      const size = Number(literal[1]);
-      const start = literal.index + literal[0].length;
-      return response.slice(start, start + size);
-    },
-    async logout() {
-      try { await command('LOGOUT', 10000); } catch (error) { /* ignore */ }
-      socket.end();
-    }
-  };
+  return Buffer.concat(chunks).toString('utf8');
 }
 
 function decodeMimeWord(charset, encoding, value) {
@@ -1237,22 +1191,23 @@ async function fetchCustomerRepliesFromImap(req) {
     throw new Error('IMAP ist nicht eingerichtet. Bitte IMAP_HOST, IMAP_USER und IMAP_PASS bei Render setzen.');
   }
 
-  const client = await createSimpleImapClient();
-  const limit = Number(process.env.IMAP_FETCH_LIMIT || 30);
+  const client = await createImapFlowClient();
+  const limit = getImapFetchLimit();
   let imported = 0;
   let duplicates = 0;
   let skipped = 0;
   let checked = 0;
+  let lock;
 
   try {
-    await client.login();
-    await client.selectInbox();
-    const ids = await client.searchAll();
+    lock = await client.getMailboxLock('INBOX');
+    const ids = await client.search({ all: true }, { uid: true });
     const latest = ids.slice(-limit).reverse();
+    console.log('[IMAP] Posteingang gelesen', { total: ids.length, checked: latest.length });
 
-    for (const id of latest) {
+    for (const uid of latest) {
       checked += 1;
-      const raw = await client.fetchRaw(id);
+      const raw = await downloadRawEmail(client, uid);
       if (!raw) { skipped += 1; continue; }
       const emailData = parseRawEmail(raw);
       const result = await saveInboundCustomerReply(emailData, req);
@@ -1261,10 +1216,13 @@ async function fetchCustomerRepliesFromImap(req) {
       else skipped += 1;
     }
   } finally {
-    await client.logout();
+    if (lock) lock.release();
+    try { await client.logout(); } catch (error) { /* ignore logout errors */ }
   }
 
-  return { imported, duplicates, skipped, checked };
+  const summary = { imported, duplicates, skipped, checked };
+  console.log('[IMAP] Abruf fertig', summary);
+  return summary;
 }
 
 function requireLogin(req, res, next) {

@@ -440,6 +440,34 @@
                       </div>
                     </div>
 
+                    <% if (permissions && permissions.canWriteNotes) { %>
+                      <details class="collapsible-admin-block request-edit-block">
+                        <summary>Auftragsdaten bearbeiten</summary>
+                        <div class="collapsible-admin-content">
+                          <p class="internal-note-hint">Hier kannst du fehlende oder falsche Angaben direkt im Dashboard ergänzen. Kundenantworten können fehlende Felder außerdem automatisch ausfüllen, wenn Angaben klar genannt werden.</p>
+                          <form class="request-edit-form" action="/admin/request/<%= a.id %>/update" method="POST">
+                            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                            <div class="request-edit-grid">
+                              <label><span>Name</span><input name="name" value="<%= a.name || '' %>" required></label>
+                              <label><span>E-Mail</span><input name="email" type="email" value="<%= a.email || '' %>"></label>
+                              <label><span>Telefon</span><input name="telefon" value="<%= a.telefon || '' %>"></label>
+                              <label><span>Leistung</span><input name="kategorie" value="<%= a.kategorie || a.leistung || leistung || '' %>"></label>
+                              <label><span>Budget</span><input name="budget" value="<%= a.budget || '' %>"></label>
+                              <label><span>Adresse / Ort</span><input name="adresse" value="<%= a.adresse || getValueFrom(a, 'Adresse / Ort') || '' %>"></label>
+                              <label><span>Auftragsart</span><input name="auftragsart" value="<%= a.auftragsart || getValueFrom(a, 'Auftragsart') || '' %>"></label>
+                              <label><span>Grundstücksgröße</span><input name="groesse" value="<%= a.groesse || getValueFrom(a, 'Grundstücksgröße') || '' %>"></label>
+                              <label><span>Zeitraum</span><input name="zeitraum" value="<%= a.zeitraum || getValueFrom(a, 'Zeitraum') || '' %>"></label>
+                              <label><span>Besichtigung</span><input name="besichtigung" value="<%= a.besichtigung || getValueFrom(a, 'Besichtigung') || '' %>"></label>
+                              <label><span>Erreichbarkeit</span><input name="erreichbarkeit" value="<%= a.erreichbarkeit || getValueFrom(a, 'Erreichbarkeit') || '' %>"></label>
+                              <label><span>Kontaktart</span><input name="kontaktart" value="<%= a.kontaktart || getValueFrom(a, 'Bevorzugte Kontaktart') || '' %>"></label>
+                            </div>
+                            <label class="full-edit-field"><span>Details / Kundenwunsch</span><textarea name="details"><%= detailsText || '' %></textarea></label>
+                            <button type="submit">Auftragsdaten speichern</button>
+                          </form>
+                        </div>
+                      </details>
+                    <% } %>
+
                     <details class="request-details-clean">
                       <summary>Details zum Auftrag anzeigen</summary>
                       <p><%= detailsText || '-' %></p>
@@ -467,6 +495,9 @@
                                   <span class="reply-message-label">Nachricht</span>
                                   <p><%= cleanReplyPreview(reply.text || '') %></p>
                                 </div>
+                                <% if (Array.isArray(reply.autoUpdatedFields) && reply.autoUpdatedFields.length) { %>
+                                  <div class="auto-filled-box">Automatisch ergänzt: <%= reply.autoUpdatedFields.join(' · ') %></div>
+                                <% } %>
                                 <div class="reply-meta-row">
                                   <% if (reply.photoCount) { %>
                                     <span>📎 <%= reply.photoCount %> Bild<%= reply.photoCount === 1 ? '' : 'er' %> gespeichert</span>

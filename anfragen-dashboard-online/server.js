@@ -1221,6 +1221,110 @@ function findAnfrageByCode(anfragen, codes) {
   return null;
 }
 
+
+function isMissingValue(value) {
+  const text = String(value || '').trim();
+  return !text || text === '-' || /^nicht angegeben$/i.test(text);
+}
+
+function requestFieldLabel(field) {
+  const labels = {
+    name: 'Name',
+    email: 'E-Mail',
+    telefon: 'Telefon',
+    kategorie: 'Leistung',
+    leistung: 'Leistung',
+    budget: 'Budget',
+    adresse: 'Adresse / Ort',
+    auftragsart: 'Auftragsart',
+    groesse: 'Grundstücksgröße',
+    zeitraum: 'Zeitraum',
+    besichtigung: 'Besichtigung',
+    erreichbarkeit: 'Erreichbarkeit',
+    kontaktart: 'Kontaktart',
+    details: 'Details'
+  };
+  return labels[field] || field;
+}
+
+function rebuildRequestMessage(anfrage) {
+  const budget = anfrage.budget || '-';
+  anfrage.nachricht = [
+    `Adresse / Ort: ${anfrage.adresse || '-'}`,
+    `Leistung: ${anfrage.leistung || anfrage.kategorie || '-'}`,
+    `Auftragsart: ${anfrage.auftragsart || '-'}`,
+    `Grundstücksgröße: ${anfrage.groesse || '-'}`,
+    `Zeitraum: ${anfrage.zeitraum || '-'}`,
+    `Budget: ${budget || '-'}`,
+    `Besichtigung: ${anfrage.besichtigung || '-'}`,
+    `Erreichbarkeit: ${anfrage.erreichbarkeit || '-'}`,
+    `Bevorzugte Kontaktart: ${anfrage.kontaktart || '-'}`,
+    '',
+    'Details:',
+    anfrage.details || '-'
+  ].join('\n');
+}
+
+function extractDetectedRequestFields(text) {
+  const input = cleanReplyText(text || '', 5000);
+  const singleLine = input.replace(/\s+/g, ' ').trim();
+  const suggestions = {};
+
+  const add = (field, value, max = 220) => {
+    const cleaned = cleanText(String(value || '').replace(/[.。]+$/g, '').trim(), max);
+    if (cleaned && cleaned.length >= 2 && !suggestions[field]) suggestions[field] = cleaned;
+  };
+
+  const patterns = [
+    ['adresse', /(?:adresse|anschrift|ort|einsatzort)\s*(?:ist|lautet|:|-)\s*([^\n.;]{4,180})/i, 180],
+    ['telefon', /(?:telefon|handy|rufnummer|nummer)\s*(?:ist|lautet|:|-)\s*([+0-9][0-9\s\-/()]{5,40})/i, 60],
+    ['budget', /(?:budget|preisrahmen|kostenrahmen)\s*(?:ist|liegt bei|:|-)\s*([^\n.;]{2,80})/i, 80],
+    ['groesse', /(?:fläche|flaeche|größe|groesse|grundstücksgröße|grundstuecksgroesse)\s*(?:ist|ca\.?|circa|:|-)\s*([^\n.;]{2,80})/i, 80],
+    ['zeitraum', /(?:zeitraum|termin|wunschtermin|wann)\s*(?:ist|wäre|waere|passt|:|-)\s*([^\n.;]{3,120})/i, 120],
+    ['besichtigung', /(?:besichtigung)\s*(?:ist|wäre|waere|passt|:|-)\s*([^\n.;]{3,120})/i, 120],
+    ['erreichbarkeit', /(?:erreichbar|erreichbarkeit)\s*(?:bin ich|ist|:|-)\s*([^\n.;]{3,120})/i, 120],
+    ['kontaktart', /(?:kontaktart|kontakt)\s*(?:ist|am liebsten|:|-)\s*([^\n.;]{3,80})/i, 80]
+  ];
+
+  for (const [field, pattern, max] of patterns) {
+    const match = singleLine.match(pattern);
+    if (match) add(field, match[1], max);
+  }
+
+  const phoneMatch = singleLine.match(/(?:\+49|0)[0-9\s\-/()]{6,}/);
+  if (phoneMatch) add('telefon', phoneMatch[0], 60);
+
+  const qmMatch = singleLine.match(/(?:ca\.?\s*)?(\d{1,5}\s*(?:m²|qm|quadratmeter))/i);
+  if (qmMatch) add('groesse', qmMatch[0], 80);
+
+  return suggestions;
+}
+
+function applyDetectedFieldsToRequest(anfrage, suggestions, sourceLabel = 'Kundenantwort') {
+  const updated = [];
+  for (const [field, value] of Object.entries(suggestions || {})) {
+    if (!value) continue;
+    if (field === 'leistung') continue;
+    if (isMissingValue(anfrage[field])) {
+      anfrage[field] = value;
+      updated.push(`${requestFieldLabel(field)}: ${value}`);
+    }
+  }
+  if (updated.length) {
+    rebuildRequestMessage(anfrage);
+    anfrage.internalNotes = Array.isArray(anfrage.internalNotes) ? anfrage.internalNotes : [];
+    anfrage.internalNotes.unshift({
+      id: crypto.randomUUID(),
+      text: `Automatisch aus ${sourceLabel} ergänzt:\n${updated.join('\n')}`,
+      createdAt: new Date().toISOString(),
+      createdAtLabel: formatBerlinDateTime(),
+      createdBy: 'System'
+    });
+    anfrage.internalNotes = anfrage.internalNotes.slice(0, 50);
+  }
+  return updated;
+}
+
 async function saveInboundCustomerReply(emailData, req) {
   const cleanTextBody = cleanReplyText(emailData.text || stripHtmlToText(emailData.html), 8000);
   const codes = extractRequestCodes(emailData.subject, cleanTextBody, emailData.html);
@@ -1264,11 +1368,15 @@ async function saveInboundCustomerReply(emailData, req) {
   anfrage.customerPhotos = Array.isArray(anfrage.customerPhotos) ? anfrage.customerPhotos : [];
   anfrage.customerPhotos.unshift(...photos);
 
+  const detectedFields = extractDetectedRequestFields(cleanTextBody);
+  const autoUpdatedFields = applyDetectedFieldsToRequest(anfrage, detectedFields, 'Kundenantwort');
+  if (autoUpdatedFields.length) reply.autoUpdatedFields = autoUpdatedFields;
+
   await createBackup('before-inbound-reply');
   await writeAnfragen(anfragen);
   addActivity(req, 'customer_reply_received', { requestId: anfrage.id, code: getRequestCode(anfrage), from: reply.from, photos: photos.length });
-  console.log('[INBOUND] Kundenantwort gespeichert', { requestId: anfrage.id, code: getRequestCode(anfrage), from: reply.from, photos: photos.length });
-  return { ok: true, requestId: anfrage.id, code: getRequestCode(anfrage), photos: photos.length };
+  console.log('[INBOUND] Kundenantwort gespeichert', { requestId: anfrage.id, code: getRequestCode(anfrage), from: reply.from, photos: photos.length, autoUpdated: autoUpdatedFields.length });
+  return { ok: true, requestId: anfrage.id, code: getRequestCode(anfrage), photos: photos.length, autoUpdated: autoUpdatedFields.length };
 }
 
 
@@ -1908,6 +2016,10 @@ app.post('/admin/general-emails/:id/assign', requireLogin, requireRole('owner', 
   anfrage.customerPhotos = Array.isArray(anfrage.customerPhotos) ? anfrage.customerPhotos : [];
   if (Array.isArray(email.photos) && email.photos.length) anfrage.customerPhotos.unshift(...email.photos);
 
+  const detectedFields = extractDetectedRequestFields(reply.text || '');
+  const autoUpdatedFields = applyDetectedFieldsToRequest(anfrage, detectedFields, 'zugeordneter E-Mail');
+  if (autoUpdatedFields.length) reply.autoUpdatedFields = autoUpdatedFields;
+
   await createBackup('before-general-email-assign');
   await writeAnfragen(anfragen);
   await updateGeneralEmail(req.params.id, item => ({ ...item, status: 'zugeordnet', assignedToRequestId: anfrage.id, assignedBy: req.session.username || 'Admin' }));
@@ -2218,6 +2330,74 @@ app.post('/admin/photos/:id/:type/:photoId/delete', requireLogin, requireRole('o
     }
   }
 
+  res.redirect('/admin#request-' + encodeURIComponent(req.params.id));
+});
+
+
+app.post('/admin/request/:id/update', requireLogin, requireRole('owner', 'admin', 'mitarbeiter'), verifyCsrf, async (req, res) => {
+  const anfragen = await readAnfragen();
+  const anfrage = anfragen.find(a => a.id === req.params.id);
+  if (!anfrage) return res.redirect('/admin?error=' + encodeURIComponent('Anfrage wurde nicht gefunden.'));
+
+  const oldSnapshot = {
+    name: anfrage.name,
+    email: anfrage.email,
+    telefon: anfrage.telefon,
+    kategorie: anfrage.kategorie,
+    budget: anfrage.budget,
+    adresse: anfrage.adresse,
+    auftragsart: anfrage.auftragsart,
+    groesse: anfrage.groesse,
+    zeitraum: anfrage.zeitraum,
+    besichtigung: anfrage.besichtigung,
+    erreichbarkeit: anfrage.erreichbarkeit,
+    kontaktart: anfrage.kontaktart,
+    details: anfrage.details
+  };
+
+  const updates = {
+    name: cleanText(req.body.name, 120),
+    email: cleanText(req.body.email, 160).toLowerCase(),
+    telefon: cleanText(req.body.telefon, 80),
+    kategorie: cleanText(req.body.kategorie || req.body.leistung, 120),
+    budget: cleanText(req.body.budget, 80),
+    adresse: cleanText(req.body.adresse, 180),
+    auftragsart: cleanText(req.body.auftragsart, 120),
+    groesse: cleanText(req.body.groesse, 120),
+    zeitraum: cleanText(req.body.zeitraum, 120),
+    besichtigung: cleanText(req.body.besichtigung, 120),
+    erreichbarkeit: cleanText(req.body.erreichbarkeit, 120),
+    kontaktart: cleanText(req.body.kontaktart, 80),
+    details: cleanText(req.body.details, 5000)
+  };
+
+  if (!updates.name) updates.name = anfrage.name || 'Unbekannt';
+  if (updates.email && !isEmail(updates.email)) return res.redirect('/admin?error=' + encodeURIComponent('E-Mail-Adresse ist ungültig.') + '#request-' + encodeURIComponent(req.params.id));
+
+  Object.assign(anfrage, updates);
+  anfrage.leistung = updates.kategorie || updates.leistung || anfrage.kategorie || 'Sonstiges';
+  anfrage.kategorie = anfrage.leistung;
+  rebuildRequestMessage(anfrage);
+
+  const changed = Object.entries(updates)
+    .filter(([key, value]) => String(oldSnapshot[key] || '') !== String(value || ''))
+    .map(([key]) => requestFieldLabel(key));
+
+  if (changed.length) {
+    anfrage.internalNotes = Array.isArray(anfrage.internalNotes) ? anfrage.internalNotes : [];
+    anfrage.internalNotes.unshift({
+      id: crypto.randomUUID(),
+      text: `Auftragsdaten bearbeitet: ${changed.join(', ')}`,
+      createdAt: new Date().toISOString(),
+      createdAtLabel: formatBerlinDateTime(),
+      createdBy: req.session.username || 'Admin'
+    });
+    anfrage.internalNotes = anfrage.internalNotes.slice(0, 50);
+  }
+
+  await createBackup('before-request-edit');
+  await writeAnfragen(anfragen);
+  addActivity(req, 'request_updated', { requestId: anfrage.id, name: anfrage.name, changed });
   res.redirect('/admin#request-' + encodeURIComponent(req.params.id));
 });
 

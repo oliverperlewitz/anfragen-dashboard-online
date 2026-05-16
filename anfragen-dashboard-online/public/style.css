@@ -1704,3 +1704,73 @@ pre { white-space: pre-wrap; margin: 0; font-family: inherit; color: var(--muted
     width: 100%;
   }
 }
+
+
+.request-edit-block summary {
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.request-edit-form {
+  display: grid;
+  gap: 16px;
+}
+
+.request-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.request-edit-grid label,
+.full-edit-field {
+  display: grid;
+  gap: 7px;
+  color: #193222;
+  font-weight: 800;
+}
+
+.request-edit-grid span,
+.full-edit-field span {
+  font-size: .72rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #7c8a70;
+}
+
+.request-edit-grid input,
+.full-edit-field textarea {
+  width: 100%;
+  border: 1px solid rgba(25, 50, 34, .18);
+  border-radius: 14px;
+  padding: 12px 13px;
+  background: #fffef8;
+  color: #193222;
+  font: inherit;
+}
+
+.full-edit-field textarea {
+  min-height: 130px;
+  resize: vertical;
+}
+
+.request-edit-form button {
+  border: 0;
+  border-radius: 999px;
+  padding: 13px 18px;
+  background: #1f5d38;
+  color: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.auto-filled-box {
+  margin-top: 10px;
+  border-radius: 14px;
+  background: #eaf7ea;
+  color: #1f5d38;
+  border: 1px solid rgba(31, 93, 56, .18);
+  padding: 10px 12px;
+  font-weight: 800;
+  font-size: .9rem;
+}

@@ -25,6 +25,39 @@ const MAX_PHOTO_SIZE_MB = Number(process.env.MAX_PHOTO_SIZE_MB || 10);
 const MAX_PHOTO_SIZE_BYTES = MAX_PHOTO_SIZE_MB * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
+
+const STATUS_OPTIONS = [
+  'Neu',
+  'Gesehen',
+  'Rückfrage offen',
+  'Besichtigung geplant',
+  'Angebot wird erstellt',
+  'Angebot gesendet',
+  'Warten auf Kundenantwort',
+  'Angenommen',
+  'Termin vereinbart',
+  'In Bearbeitung',
+  'Pausiert',
+  'Erledigt',
+  'Abgerechnet',
+  'Bezahlt',
+  'Abgelehnt',
+  'Storniert'
+];
+
+const CUSTOMER_EMAIL_STATUSES = new Set([
+  'Neu',
+  'Rückfrage offen',
+  'Besichtigung geplant',
+  'Angebot gesendet',
+  'Termin vereinbart',
+  'In Bearbeitung',
+  'Pausiert',
+  'Erledigt',
+  'Abgerechnet',
+  'Storniert'
+]);
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -747,10 +780,29 @@ function escapeHtml(value) {
 }
 
 function statusText(status) {
-  if (status === 'Neu') return 'Deine Anfrage ist bei uns eingegangen und wurde als neu erfasst.';
-  if (status === 'In Bearbeitung') return 'Wir bearbeiten deine Anfrage jetzt und melden uns zeitnah bei dir.';
-  if (status === 'Erledigt') return 'Deine Anfrage wurde bei uns als erledigt markiert. Vielen Dank für dein Vertrauen.';
-  return `Der Status deiner Anfrage wurde auf "${status}" geändert.`;
+  const texts = {
+    'Neu': 'Deine Anfrage ist bei uns eingegangen und wurde als neu erfasst.',
+    'Gesehen': 'Wir haben deine Anfrage gelesen.',
+    'Rückfrage offen': 'Für die weitere Bearbeitung benötigen wir noch ein paar Informationen von dir.',
+    'Besichtigung geplant': 'Wir haben eine Besichtigung für deine Anfrage eingeplant.',
+    'Angebot wird erstellt': 'Wir erstellen aktuell dein Angebot.',
+    'Angebot gesendet': 'Wir haben dir ein Angebot zu deiner Anfrage gesendet.',
+    'Warten auf Kundenantwort': 'Wir warten aktuell auf deine Rückmeldung.',
+    'Angenommen': 'Dein Auftrag wurde angenommen.',
+    'Termin vereinbart': 'Für deinen Auftrag wurde ein Termin vereinbart.',
+    'In Bearbeitung': 'Wir bearbeiten deinen Auftrag jetzt.',
+    'Pausiert': 'Dein Auftrag ist vorübergehend pausiert.',
+    'Erledigt': 'Dein Auftrag wurde als erledigt markiert. Vielen Dank für dein Vertrauen.',
+    'Abgerechnet': 'Dein Auftrag wurde abgerechnet.',
+    'Bezahlt': 'Die Zahlung wurde bei uns vermerkt.',
+    'Abgelehnt': 'Die Anfrage wurde abgelehnt.',
+    'Storniert': 'Der Auftrag wurde storniert.'
+  };
+  return texts[status] || `Der Status deiner Anfrage wurde auf "${status}" geändert.`;
+}
+
+function shouldEmailCustomerForStatus(status) {
+  return CUSTOMER_EMAIL_STATUSES.has(status);
 }
 
 
@@ -819,7 +871,7 @@ async function sendAdminNotification(anfrage) {
   await sendMail({ to: process.env.ADMIN_EMAIL, subject, text, replyTo: anfrage.email || undefined, type: 'Admin-Benachrichtigung' });
 }
 
-async function sendStatusEmail(anfrage, oldStatus, newStatus) {
+async function sendStatusEmail(anfrage, oldStatus, newStatus, customerMessage = '') {
   if (!anfrage.email) {
     logMail('Status-Mail übersprungen: Anfrage hat keine E-Mail-Adresse.', { requestId: anfrage.id, name: anfrage.name });
     return false;
@@ -828,6 +880,17 @@ async function sendStatusEmail(anfrage, oldStatus, newStatus) {
     logMail('Status-Mail übersprungen: Status wurde nicht geändert.', { requestId: anfrage.id, status: newStatus });
     return false;
   }
+
+  const cleanedCustomerMessage = cleanText(customerMessage, 2500).trim();
+  const messageBlockText = cleanedCustomerMessage
+    ? `
+Wichtige Information von GrünWerk:
+${cleanedCustomerMessage}
+`
+    : '';
+  const messageBlockHtml = cleanedCustomerMessage
+    ? `<div style="background:#fff8e8;border-left:4px solid #c59b42;border-radius:14px;padding:16px;margin:18px 0"><p style="margin-top:0"><strong>Wichtige Information:</strong></p><p>${escapeHtml(cleanedCustomerMessage).replaceAll('\n', '<br>')}</p></div>`
+    : '';
 
   const subject = subjectWithRequestCode(`Update zu deiner Anfrage: ${newStatus}`, anfrage);
   const text = `Hallo ${anfrage.name},\n\n` +
@@ -849,6 +912,7 @@ async function sendStatusEmail(anfrage, oldStatus, newStatus) {
         <p><strong>Neuer Status:</strong> ${escapeHtml(newStatus)}</p>
       </div>
       <p>${escapeHtml(statusText(newStatus))}</p>
+      ${messageBlockHtml}
       <p>Viele Grüße<br><strong>GrünWerk Gartenbau</strong></p>
     </div>
   `;
@@ -908,71 +972,6 @@ function stripHtmlToText(html) {
     .trim();
 }
 
-
-function stripQuotedReply(value) {
-  let text = fixMojibake(String(value || ''))
-    .replace(/\r\n/g, '\n')
-    .replace(/\u00a0/g, ' ')
-    .replace(/[ \t]+$/gm, '')
-    .trim();
-
-  // Viele Mailprogramme hängen die alte Mail nicht sauber als einzelne Zeilen an,
-  // sondern direkt nach der Antwort. Deshalb schneiden wir auch Inline-Zitate ab.
-  const inlineCutPatterns = [
-    /\s+GrünWerk\s+Gartenbau\s*<[^>]+>\s+schrieb\s+am\s+.{0,160}?(?:[:>]|$)/i,
-    /\s+[\p{L}0-9 ._'-]+\s*<[^>]+>\s+schrieb\s+am\s+.{0,160}?(?:[:>]|$)/iu,
-    /\s+Am\s+.{0,220}?\s+schrieb\s+.{0,160}?(?:[:>]|$)/i,
-    /\s+On\s+.{0,220}?\s+wrote\s*:/i,
-    /\s+-----Original Message-----/i,
-    /\s+(?:Von|From):\s+/i
-  ];
-
-  for (const pattern of inlineCutPatterns) {
-    const match = text.match(pattern);
-    if (match && typeof match.index === 'number' && match.index > 0) {
-      text = text.slice(0, match.index).trim();
-      break;
-    }
-  }
-
-  const quoteLinePatterns = [
-    /^>+/,
-    /^\s*Am\s+.+\s+schrieb\s+.+:/i,
-    /^\s*On\s+.+\s+wrote:/i,
-    /^\s*GrünWerk\s+Gartenbau\s*<[^>]+>\s+schrieb\s+am\s+/i,
-    /^\s*[\p{L}0-9 ._'-]+\s*<[^>]+>\s+schrieb\s+am\s+/iu,
-    /^\s*(Von|From|Gesendet|Sent|An|To|Betreff|Subject):\s+/i
-  ];
-
-  const kept = [];
-  for (const line of text.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      if (kept.length && kept[kept.length - 1] !== '') kept.push('');
-      continue;
-    }
-    if (quoteLinePatterns.some(pattern => pattern.test(trimmed))) break;
-    kept.push(line.replace(/^\s*>+\s*/, '').trim());
-  }
-
-  text = kept.join('\n')
-    .replace(/\s*>\s*>\s*/g, '\n')
-    .replace(/\s*>\s*/g, '\n')
-    .split('\n')
-    .map(line => line.trim())
-    .filter((line, index, arr) => line || (index > 0 && arr[index - 1]))
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-
-  return text;
-}
-
-function summarizeCustomerReply(value) {
-  const cleaned = stripQuotedReply(value);
-  return cleanMultiline(cleaned || '(keine Textantwort erkannt)', 2500);
-}
-
 function extractRequestCodes(...texts) {
   const combined = texts.filter(Boolean).map(String).join('\n');
   const codes = [];
@@ -1025,7 +1024,7 @@ function findAnfrageByCode(anfragen, codes) {
 }
 
 async function saveInboundCustomerReply(emailData, req) {
-  const cleanTextBody = summarizeCustomerReply(emailData.text || stripHtmlToText(emailData.html));
+  const cleanTextBody = cleanText(emailData.text || stripHtmlToText(emailData.html), 8000);
   const codes = extractRequestCodes(emailData.subject, cleanTextBody, emailData.html);
   const anfragen = await readAnfragen();
   const anfrage = findAnfrageByCode(anfragen, codes);
@@ -1909,15 +1908,47 @@ app.post('/admin/status/:id', requireLogin, verifyCsrf, async (req, res) => {
   const anfrage = anfragen.find(a => a.id === req.params.id);
   if (anfrage) {
     const oldStatus = anfrage.status || 'Neu';
-    const allowedStatuses = ['Neu', 'In Bearbeitung', 'Erledigt'];
-    const newStatus = allowedStatuses.includes(req.body.status) ? req.body.status : oldStatus;
+    const newStatus = STATUS_OPTIONS.includes(req.body.status) ? req.body.status : oldStatus;
+    const customerMessage = cleanText(req.body.customerMessage || '', 2500).trim();
+    const notifyCustomer = req.body.notifyCustomer === 'on' && shouldEmailCustomerForStatus(newStatus);
+
     anfrage.status = newStatus;
+    anfrage.statusMessages = Array.isArray(anfrage.statusMessages) ? anfrage.statusMessages : [];
+
+    if (customerMessage || notifyCustomer) {
+      anfrage.statusMessages.unshift({
+        id: crypto.randomUUID(),
+        status: newStatus,
+        message: customerMessage,
+        emailed: Boolean(notifyCustomer),
+        createdAt: new Date().toISOString(),
+        createdAtLabel: formatBerlinDateTime(),
+        createdBy: req.session.username || 'Admin'
+      });
+      anfrage.statusMessages = anfrage.statusMessages.slice(0, 20);
+    }
+
     await createBackup('before-status');
     await writeAnfragen(anfragen);
-    addActivity(req, 'status_changed', { requestId: anfrage.id, name: anfrage.name, oldStatus, newStatus });
-    await sendStatusEmail(anfrage, oldStatus, newStatus);
+    addActivity(req, 'status_changed', {
+      requestId: anfrage.id,
+      name: anfrage.name,
+      oldStatus,
+      newStatus,
+      notifiedCustomer: notifyCustomer,
+      messageAdded: Boolean(customerMessage)
+    });
+
+    if (notifyCustomer) {
+      await sendStatusEmail(anfrage, oldStatus, newStatus, customerMessage);
+    } else {
+      logMail('Status-Mail nicht gesendet: Kundenbenachrichtigung deaktiviert oder Status ist intern.', {
+        requestId: anfrage.id,
+        status: newStatus
+      });
+    }
   }
-  res.redirect('/admin');
+  res.redirect('/admin#request-' + encodeURIComponent(req.params.id));
 });
 
 app.post('/admin/delete/:id', requireLogin, requireRole('owner', 'admin'), verifyCsrf, async (req, res) => {

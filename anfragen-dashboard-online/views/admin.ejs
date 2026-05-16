@@ -36,6 +36,106 @@
       { name: 'Winterdienst', icon: '❄️', subtitle: 'Räumen, Streuen & Sicherheit im Winter' },
       { name: 'Sonstiges', icon: '📌', subtitle: 'Alle weiteren Anfragen' }
     ];
+    const statusOptions = [
+      'Neu',
+      'Gesehen',
+      'Rückfrage offen',
+      'Besichtigung geplant',
+      'Angebot wird erstellt',
+      'Angebot gesendet',
+      'Warten auf Kundenantwort',
+      'Angenommen',
+      'Termin vereinbart',
+      'In Bearbeitung',
+      'Pausiert',
+      'Erledigt',
+      'Abgerechnet',
+      'Bezahlt',
+      'Abgelehnt',
+      'Storniert'
+    ];
+    const emailStatusOptions = [
+      'Neu',
+      'Rückfrage offen',
+      'Besichtigung geplant',
+      'Angebot gesendet',
+      'Termin vereinbart',
+      'In Bearbeitung',
+      'Pausiert',
+      'Erledigt',
+      'Abgerechnet',
+      'Storniert'
+    ];
+    const statusTemplates = {
+      'Rückfrage offen': [
+        {
+          label: 'Fehlende Informationen allgemein',
+          text: 'Hallo,\n\nwir haben deine Anfrage geprüft. Für eine genaue Einschätzung benötigen wir noch ein paar Informationen:\n\n- genaue Adresse\n- Fotos vom Bereich\n- ungefähre Fläche in m²\n\nDu kannst einfach auf diese E-Mail antworten.\n\nViele Grüße\nGrünWerk Gartenbau'
+        },
+        {
+          label: 'Weitere Fotos benötigt',
+          text: 'Hallo,\n\nfür eine bessere Einschätzung benötigen wir bitte noch ein paar Fotos vom betroffenen Bereich.\n\nBitte fotografiere möglichst den gesamten Bereich und wichtige Details.\n\nViele Grüße\nGrünWerk Gartenbau'
+        }
+      ],
+      'Besichtigung geplant': [
+        {
+          label: 'Standard-Besichtigung',
+          text: 'Hallo,\n\nwir haben eine Besichtigung für [Datum] um [Uhrzeit] eingeplant.\n\nBitte sorge dafür, dass der Bereich zugänglich ist.\n\nViele Grüße\nGrünWerk Gartenbau'
+        },
+        {
+          label: 'Termin bestätigen lassen',
+          text: 'Hallo,\n\nwir können dir eine Besichtigung am [Datum] um [Uhrzeit] anbieten.\n\nBitte antworte kurz, ob dieser Termin für dich passt.\n\nViele Grüße\nGrünWerk Gartenbau'
+        }
+      ],
+      'Angebot gesendet': [
+        {
+          label: 'Angebot verschickt',
+          text: 'Hallo,\n\nwir haben dir unser Angebot zu deiner Anfrage gesendet.\n\nBei Fragen kannst du einfach auf diese E-Mail antworten.\n\nViele Grüße\nGrünWerk Gartenbau'
+        }
+      ],
+      'Warten auf Kundenantwort': [
+        {
+          label: 'Freundliche Erinnerung',
+          text: 'Hallo,\n\nwir wollten kurz nachfragen, ob du zu deiner Anfrage bereits eine Entscheidung treffen konntest.\n\nBei Fragen sind wir gerne für dich da.\n\nViele Grüße\nGrünWerk Gartenbau'
+        }
+      ],
+      'Termin vereinbart': [
+        {
+          label: 'Arbeitstermin bestätigt',
+          text: 'Hallo,\n\nder Termin für die Ausführung ist für [Datum] um [Uhrzeit] vereinbart.\n\nBitte stelle sicher, dass der Bereich zugänglich ist.\n\nViele Grüße\nGrünWerk Gartenbau'
+        }
+      ],
+      'In Bearbeitung': [
+        {
+          label: 'Auftrag gestartet',
+          text: 'Hallo,\n\nwir haben mit deinem Auftrag begonnen.\n\nFalls sich während der Ausführung etwas Wichtiges ergibt, melden wir uns bei dir.\n\nViele Grüße\nGrünWerk Gartenbau'
+        }
+      ],
+      'Pausiert': [
+        {
+          label: 'Wetter / Material / Termin',
+          text: 'Hallo,\n\nwir müssen die Arbeiten vorübergehend pausieren. Grund: [Grund eintragen].\n\nWir melden uns, sobald es weitergeht.\n\nViele Grüße\nGrünWerk Gartenbau'
+        }
+      ],
+      'Erledigt': [
+        {
+          label: 'Arbeiten abgeschlossen',
+          text: 'Hallo,\n\ndie Arbeiten wurden abgeschlossen.\n\nVielen Dank für dein Vertrauen. Bei Fragen kannst du dich gerne melden.\n\nViele Grüße\nGrünWerk Gartenbau'
+        }
+      ],
+      'Abgerechnet': [
+        {
+          label: 'Rechnung / Abrechnung',
+          text: 'Hallo,\n\nder Auftrag wurde abgerechnet.\n\nDie Rechnung erhältst du separat bzw. wurde bereits übermittelt.\n\nViele Grüße\nGrünWerk Gartenbau'
+        }
+      ],
+      'Storniert': [
+        {
+          label: 'Auftrag storniert',
+          text: 'Hallo,\n\nder Auftrag wurde storniert.\n\nFalls du später erneut Unterstützung brauchst, kannst du dich gerne wieder melden.\n\nViele Grüße\nGrünWerk Gartenbau'
+        }
+      ]
+    };
     const total = anfragen.length;
     const countStatus = (name) => anfragen.filter(a => (a.status || 'Neu') === name).length;
     const grouped = departments.map(dep => ({ ...dep, items: anfragen.filter(a => getDepartment(a) === dep.name) }));
@@ -439,15 +539,56 @@
                     </details>
 
                     <div class="admin-card-actions">
-                      <form action="/admin/status/<%= a.id %>" method="POST" class="status-form clean-status-form">
-                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                        <select name="status" aria-label="Status ändern">
-                          <option <%= a.status === 'Neu' ? 'selected' : '' %>>Neu</option>
-                          <option <%= a.status === 'In Bearbeitung' ? 'selected' : '' %>>In Bearbeitung</option>
-                          <option <%= a.status === 'Erledigt' ? 'selected' : '' %>>Erledigt</option>
-                        </select>
-                        <button type="submit">Status ändern</button>
-                      </form>
+                      <details class="status-update-panel">
+                        <summary>Status ändern & Kundeninfo schreiben</summary>
+                        <form action="/admin/status/<%= a.id %>" method="POST" class="status-form status-smart-form" data-status-form>
+                          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                          <div class="status-form-grid">
+                            <label>
+                              <span>Neuer Status</span>
+                              <select name="status" aria-label="Status ändern" data-status-select>
+                                <% statusOptions.forEach(status => { %>
+                                  <option value="<%= status %>" <%= (a.status || 'Neu') === status ? 'selected' : '' %>><%= status %></option>
+                                <% }) %>
+                              </select>
+                            </label>
+                            <label>
+                              <span>Vorlage</span>
+                              <select data-template-select>
+                                <option value="">Keine Vorlage</option>
+                              </select>
+                            </label>
+                          </div>
+
+                          <label class="status-message-label">
+                            <span>Nachricht an Kunden</span>
+                            <textarea name="customerMessage" data-message-box placeholder="Wichtige Information an den Kunden, z. B. Termin, fehlende Angaben oder Grund der Pause..."></textarea>
+                          </label>
+
+                          <label class="notify-customer-row">
+                            <input type="checkbox" name="notifyCustomer" data-notify-checkbox>
+                            <span>Kunden per E-Mail informieren</span>
+                          </label>
+                          <p class="status-email-hint" data-email-hint></p>
+
+                          <button type="submit">Status übernehmen</button>
+                        </form>
+                      </details>
+                      <% const statusMessages = asArray(a.statusMessages); %>
+                      <% if (statusMessages.length) { %>
+                        <details class="status-history-panel">
+                          <summary>Gesendete Status-Infos anzeigen</summary>
+                          <div class="status-history-list">
+                            <% statusMessages.slice(0, 5).forEach(item => { %>
+                              <div class="status-history-item">
+                                <strong><%= item.status %></strong>
+                                <span><%= item.createdAtLabel || '' %> · <%= item.createdBy || 'Admin' %> · <%= item.emailed ? 'E-Mail gesendet' : 'nur intern' %></span>
+                                <% if (item.message) { %><p><%= item.message %></p><% } %>
+                              </div>
+                            <% }) %>
+                          </div>
+                        </details>
+                      <% } %>
                       <% if (permissions && permissions.canDeleteRequests) { %>
                         <form action="/admin/delete/<%= a.id %>" method="POST" onsubmit="return confirm('Diese Anfrage wirklich löschen?');">
                           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -527,5 +668,61 @@
     <% } %>
 
   </main>
+  <script>
+    window.GRÜNWERK_STATUS_TEMPLATES = <%- JSON.stringify(statusTemplates) %>;
+    window.GRÜNWERK_EMAIL_STATUSES = <%- JSON.stringify(emailStatusOptions) %>;
+
+    document.querySelectorAll('[data-status-form]').forEach((form) => {
+      const statusSelect = form.querySelector('[data-status-select]');
+      const templateSelect = form.querySelector('[data-template-select]');
+      const messageBox = form.querySelector('[data-message-box]');
+      const notifyCheckbox = form.querySelector('[data-notify-checkbox]');
+      const hint = form.querySelector('[data-email-hint]');
+      const templates = window.GRÜNWERK_STATUS_TEMPLATES || {};
+      const emailStatuses = new Set(window.GRÜNWERK_EMAIL_STATUSES || []);
+
+      function updateTemplates() {
+        const status = statusSelect.value;
+        const list = templates[status] || [];
+        templateSelect.innerHTML = '<option value="">Keine Vorlage</option>';
+        list.forEach((template, index) => {
+          const option = document.createElement('option');
+          option.value = String(index);
+          option.textContent = template.label;
+          templateSelect.appendChild(option);
+        });
+      }
+
+      function updateNotify() {
+        const status = statusSelect.value;
+        const shouldNotify = emailStatuses.has(status);
+        notifyCheckbox.checked = shouldNotify;
+        notifyCheckbox.disabled = !shouldNotify;
+        hint.textContent = shouldNotify
+          ? 'Bei diesem Status kann der Kunde automatisch informiert werden. Du kannst die E-Mail vor dem Senden anpassen.'
+          : 'Dieser Status ist normalerweise intern. Es wird keine Kundenmail gesendet.';
+      }
+
+      statusSelect.addEventListener('change', () => {
+        updateTemplates();
+        updateNotify();
+      });
+
+      templateSelect.addEventListener('change', () => {
+        const status = statusSelect.value;
+        const selected = templates[status]?.[Number(templateSelect.value)];
+        if (selected && !messageBox.value.trim()) {
+          messageBox.value = selected.text;
+        } else if (selected) {
+          const replace = confirm('Vorlage in das Nachrichtenfeld übernehmen und den aktuellen Text ersetzen?');
+          if (replace) messageBox.value = selected.text;
+        }
+      });
+
+      updateTemplates();
+      updateNotify();
+    });
+  </script>
+
 </body>
 </html>

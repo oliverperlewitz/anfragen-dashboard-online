@@ -878,7 +878,6 @@ function validateRequestForm(body) {
     besichtigung: cleanText(body.besichtigung, 80),
     erreichbarkeit: cleanText(body.erreichbarkeit, 80),
     kontaktart: cleanText(body.kontaktart, 80),
-    zahlungswunsch: cleanText(body.zahlungswunsch, 80),
     wunschDatum: cleanText(body.wunschDatum, 20),
     wunschUhrzeit: cleanText(body.wunschUhrzeit, 20),
     datenschutz: body.datenschutz
@@ -1402,7 +1401,6 @@ function rebuildRequestMessage(anfrage) {
     `Besichtigung: ${anfrage.besichtigung || '-'}`,
     `Erreichbarkeit: ${anfrage.erreichbarkeit || '-'}`,
     `Bevorzugte Kontaktart: ${anfrage.kontaktart || '-'}`,
-    `Zahlungswunsch: ${anfrage.zahlungswunsch || '-'}`,
     '',
     'Details:',
     anfrage.details || '-'
@@ -1965,7 +1963,6 @@ app.get('/admin/invoice-settings', (req, res) => {
     bic: process.env.INVOICE_BIC || '',
     accountHolder: process.env.INVOICE_ACCOUNT_HOLDER || '',
     bank: process.env.INVOICE_BANK || '',
-      paypalEmail: process.env.INVOICE_PAYPAL_EMAIL || process.env.PAYPAL_EMAIL || '',
     footer: process.env.INVOICE_FOOTER || 'Vielen Dank für deinen Auftrag.'
   });
 });
@@ -2051,7 +2048,6 @@ app.post('/anfrage', formLimiter, handleUpload(upload.array('customerPhotos', 5)
     `Besichtigung: ${besichtigung || '-'}`,
     `Erreichbarkeit: ${erreichbarkeit || '-'}`,
     `Bevorzugte Kontaktart: ${kontaktart || '-'}`,
-    `Zahlungswunsch: ${zahlungswunsch || '-'}`,
     `Wunschtermin: ${wunschDatum && wunschUhrzeit ? `${formatBerlinDateShort(wunschDatum)} um ${wunschUhrzeit} Uhr` : '-'}`,
     '',
     'Details:',
@@ -2076,7 +2072,6 @@ app.post('/anfrage', formLimiter, handleUpload(upload.array('customerPhotos', 5)
     besichtigung: besichtigung || '',
     erreichbarkeit: erreichbarkeit || '',
     kontaktart: kontaktart || '',
-    zahlungswunsch: zahlungswunsch || '',
     wunschDatum: wunschDatum || '',
     wunschUhrzeit: wunschUhrzeit || '',
     calendarDate: wunschDatum || '',

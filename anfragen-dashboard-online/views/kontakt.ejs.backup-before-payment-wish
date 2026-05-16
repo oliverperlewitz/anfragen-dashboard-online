@@ -221,14 +221,6 @@
                   <option>E-Mail</option>
                   <option>WhatsApp</option>
                 </select>
-                <select name="zahlungswunsch">
-                  <option value="">Wie möchtest du bezahlen? optional</option>
-                  <option>Rechnung / Überweisung</option>
-                  <option>Bar vor Ort</option>
-                  <option>PayPal</option>
-                  <option>Kartenzahlung / Sonstiges</option>
-                  <option>Noch offen</option>
-                </select>
               </div>
             </fieldset>
           </details>

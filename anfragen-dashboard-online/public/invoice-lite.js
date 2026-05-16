@@ -8,6 +8,7 @@
     bic: '',
     accountHolder: '',
     bank: '',
+    paypalEmail: '',
     footer: DEFAULT_FOOTER
   };
 
@@ -16,7 +17,8 @@
       invoiceSettings.iban ? `IBAN: ${invoiceSettings.iban}` : '',
       invoiceSettings.bic ? `BIC: ${invoiceSettings.bic}` : '',
       invoiceSettings.accountHolder ? `Kontoinhaber: ${invoiceSettings.accountHolder}` : '',
-      invoiceSettings.bank ? `Bank: ${invoiceSettings.bank}` : ''
+      invoiceSettings.bank ? `Bank: ${invoiceSettings.bank}` : '',
+      invoiceSettings.paypalEmail ? `PayPal: ${invoiceSettings.paypalEmail}` : ''
     ].filter(Boolean).join('\n');
   }
 
@@ -105,7 +107,13 @@
     const phone = findDataValue(card, ['telefon']);
     const address = findDataValue(card, ['adresse', 'ort']);
     const detailsEl = card.querySelector('.request-details-clean p, .details-edit-row p');
-    return { ticket, name, date, service, email, phone, address, details: text(detailsEl) };
+    const detailsText = text(detailsEl);
+    let paymentWish = findDataValue(card, ['zahlungswunsch', 'zahlung']);
+    if (!paymentWish || paymentWish === '-') {
+      const match = detailsText.match(/Zahlungswunsch:\s*([^\n]+)/i);
+      paymentWish = match ? match[1].trim() : '';
+    }
+    return { ticket, name, date, service, email, phone, address, details: detailsText, paymentWish };
   }
 
   function invoiceNumber(kind, ticket) {
@@ -137,7 +145,7 @@
       <div class="invoice-lite-body">
         <p class="invoice-lite-note">Erstellt eine druckbare PDF-Vorlage im Browser. Zum Speichern im Druckfenster „Als PDF speichern“ wählen. E-Mail wird vorbereitet, PDF bitte manuell anhängen.</p>
         <div class="invoice-lite-grid three">
-          <label class="invoice-lite-field"><span>Dokument</span><select class="invoice-kind"><option value="invoice">Rechnung / Überweisung</option><option value="cash">Barzahlung / Quittung</option><option value="card">Kartenzahlung / Sonstiges</option></select></label>
+          <label class="invoice-lite-field"><span>Dokument</span><select class="invoice-kind"><option value="invoice">Rechnung / Überweisung</option><option value="cash">Barzahlung / Quittung</option><option value="paypal">PayPal</option><option value="card">Kartenzahlung / Sonstiges</option></select></label>
           <label class="invoice-lite-field"><span>Rechnungsdatum</span><input class="invoice-date" type="date" value="${isoDate()}"></label>
           <label class="invoice-lite-field"><span>Leistungsdatum</span><input class="service-date" type="date" value="${isoDate()}"></label>
         </div>
@@ -165,6 +173,14 @@
     const list = panel.querySelector('.invoice-lite-items-list');
     list.appendChild(createItemRow(data.service && data.service !== '-' ? data.service : 'Gartenarbeit vor Ort', '1', ''));
     panel.querySelector('.invoice-add-item').addEventListener('click', () => list.appendChild(createItemRow('', '1', '')));
+    const kindSelect = panel.querySelector('.invoice-kind');
+    const wish = String(data.paymentWish || '').toLowerCase();
+    if (kindSelect) {
+      if (wish.includes('bar')) kindSelect.value = 'cash';
+      else if (wish.includes('paypal') || wish.includes('pay pal')) kindSelect.value = 'paypal';
+      else if (wish.includes('karte') || wish.includes('sumup') || wish.includes('sonstig')) kindSelect.value = 'card';
+      else if (wish.includes('rechnung') || wish.includes('überweisung') || wish.includes('ueberweisung')) kindSelect.value = 'invoice';
+    }
     panel.querySelector('.invoice-preview').addEventListener('click', () => openInvoice(panel, data));
     panel.querySelector('.invoice-email').addEventListener('click', () => prepareEmail(panel, data));
     applyInvoiceSettings(panel);
@@ -188,7 +204,7 @@
     const total = rows.reduce((sum, row) => sum + row.total, 0);
     return {
       kind,
-      title: kind === 'cash' ? 'BARRECHNUNG / QUITTUNG' : kind === 'card' ? 'RECHNUNG' : 'RECHNUNG',
+      title: kind === 'cash' ? 'BARRECHNUNG / QUITTUNG' : 'RECHNUNG',
       invNo,
       invDate,
       serviceDate,
@@ -209,9 +225,11 @@
     const doc = collect(panel, data);
     const paymentText = doc.kind === 'cash'
       ? `Betrag dankend bar erhalten am ${germanDate(doc.invDate)}.`
-      : doc.kind === 'card'
-        ? 'Zahlungsart: Kartenzahlung / Sonstiges.'
-        : `Bitte überweise den Betrag bis zum ${germanDate(doc.dueDate)}. Verwendungszweck: ${doc.invNo}`;
+      : doc.kind === 'paypal'
+        ? `Zahlungsart: PayPal. Bitte zahle den Betrag per PayPal${invoiceSettings.paypalEmail ? ` an ${invoiceSettings.paypalEmail}` : ''}. Verwendungszweck: ${doc.invNo}`
+        : doc.kind === 'card'
+          ? 'Zahlungsart: Kartenzahlung / Sonstiges.'
+          : `Bitte überweise den Betrag bis zum ${germanDate(doc.dueDate)}. Verwendungszweck: ${doc.invNo}`;
 
     const rowsHtml = doc.rows.map((row, index) => `
       <tr>

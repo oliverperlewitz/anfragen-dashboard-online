@@ -570,7 +570,6 @@
                         <input type="hidden" name="besichtigung" value="<%= a.besichtigung || getValueFrom(a, 'Besichtigung') || '' %>">
                         <input type="hidden" name="erreichbarkeit" value="<%= a.erreichbarkeit || getValueFrom(a, 'Erreichbarkeit') || '' %>">
                         <input type="hidden" name="kontaktart" value="<%= a.kontaktart || getValueFrom(a, 'Bevorzugte Kontaktart') || '' %>">
-                        <input type="hidden" name="zahlungswunsch" value="<%= a.zahlungswunsch || getValueFrom(a, 'Zahlungswunsch') || '' %>">
                         <input type="hidden" name="details" value="<%= detailsText || '' %>">
                       </form>
                     <% } %>
@@ -660,8 +659,7 @@
                       <div class="data-list two">
                         <div class="editable-data-row"><div><span>Besichtigung</span><strong><%= a.besichtigung || getValueFrom(a, 'Besichtigung') %></strong></div><% if (permissions && permissions.canWriteNotes) { %><button type="button" class="inline-edit-pencil small" data-edit-form="request-inline-edit-<%= a.id %>" data-edit-field="besichtigung" data-edit-label="Besichtigung" data-edit-value="<%= a.besichtigung || getValueFrom(a, 'Besichtigung') || '' %>" aria-label="Besichtigung bearbeiten">✎</button><% } %></div>
                         <div class="editable-data-row"><div><span>Erreichbarkeit</span><strong><%= a.erreichbarkeit || getValueFrom(a, 'Erreichbarkeit') %></strong></div><% if (permissions && permissions.canWriteNotes) { %><button type="button" class="inline-edit-pencil small" data-edit-form="request-inline-edit-<%= a.id %>" data-edit-field="erreichbarkeit" data-edit-label="Erreichbarkeit" data-edit-value="<%= a.erreichbarkeit || getValueFrom(a, 'Erreichbarkeit') || '' %>" aria-label="Erreichbarkeit bearbeiten">✎</button><% } %></div>
-                        <div class="editable-data-row"><div><span>Kontaktart</span><strong><%= a.kontaktart || getValueFrom(a, 'Bevorzugte Kontaktart') %></strong></div>
-                            <div class="editable-data-row"><div><span>Zahlungswunsch</span><strong><%= a.zahlungswunsch || getValueFrom(a, 'Zahlungswunsch') || '-' %></strong></div><% if (permissions && permissions.canWriteNotes) { %><button type="button" class="inline-edit-pencil small" data-edit-form="request-inline-edit-<%= a.id %>" data-edit-field="zahlungswunsch" data-edit-label="Zahlungswunsch" data-edit-value="<%= a.zahlungswunsch || getValueFrom(a, 'Zahlungswunsch') || '' %>" aria-label="Zahlungswunsch bearbeiten">✎</button><% } %></div><% if (permissions && permissions.canWriteNotes) { %><button type="button" class="inline-edit-pencil small" data-edit-form="request-inline-edit-<%= a.id %>" data-edit-field="kontaktart" data-edit-label="Kontaktart" data-edit-value="<%= a.kontaktart || getValueFrom(a, 'Bevorzugte Kontaktart') || '' %>" aria-label="Kontaktart bearbeiten">✎</button><% } %></div>
+                        <div class="editable-data-row"><div><span>Kontaktart</span><strong><%= a.kontaktart || getValueFrom(a, 'Bevorzugte Kontaktart') %></strong></div><% if (permissions && permissions.canWriteNotes) { %><button type="button" class="inline-edit-pencil small" data-edit-form="request-inline-edit-<%= a.id %>" data-edit-field="kontaktart" data-edit-label="Kontaktart" data-edit-value="<%= a.kontaktart || getValueFrom(a, 'Bevorzugte Kontaktart') || '' %>" aria-label="Kontaktart bearbeiten">✎</button><% } %></div>
                       </div>
                     </div>
 

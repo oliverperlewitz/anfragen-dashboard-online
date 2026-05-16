@@ -842,60 +842,6 @@
                       </div>
                     </details>
 
-
-
-                    <details class="invoice-panel-clean">
-                      <summary>Zahlung & Rechnung</summary>
-                      <% const invoices = Array.isArray(a.invoices) ? a.invoices : []; %>
-                      <div class="invoice-panel-body">
-                        <% if (invoices.length) { %>
-                          <div class="invoice-list-clean">
-                            <% invoices.forEach(invoice => { %>
-                              <div class="invoice-list-item-clean">
-                                <div>
-                                  <strong><%= invoice.number %></strong>
-                                  <span><%= invoice.documentTitle || 'Rechnung' %> · <%= invoice.paymentLabel || '-' %> · <%= invoice.status || 'Offen' %></span>
-                                  <small><%= invoice.createdAtLabel || '' %> · <%= new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(invoice.gross || 0) %></small>
-                                </div>
-                                <div class="invoice-actions-clean">
-                                  <a class="button secondary" target="_blank" href="/admin/invoices/<%= a.id %>/<%= invoice.id %>.pdf">PDF öffnen</a>
-                                  <% if ((invoice.status || 'Offen') !== 'Bezahlt') { %>
-                                    <form action="/admin/invoices/<%= a.id %>/<%= invoice.id %>/paid" method="POST">
-                                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                                      <button type="submit">Als bezahlt markieren</button>
-                                    </form>
-                                  <% } %>
-                                </div>
-                              </div>
-                            <% }) %>
-                          </div>
-                        <% } %>
-
-                        <form action="/admin/invoices/<%= a.id %>/create" method="POST" class="invoice-form-clean">
-                          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                          <div class="invoice-grid-clean">
-                            <label><span>Zahlungsart</span><select name="paymentMethod"><option value="bank">Rechnung / Überweisung</option><option value="cash">Barzahlung / Quittung</option><option value="card">Kartenzahlung / Sonstiges</option></select></label>
-                            <label><span>Steuer</span><select name="taxMode"><option value="small_business">Kleinunternehmer § 19 UStG</option><option value="vat19">Umsatzsteuer 19 %</option></select></label>
-                            <label><span>Zahlbar in Tagen</span><input name="dueDays" value="14" inputmode="numeric"></label>
-                          </div>
-
-                          <div class="invoice-items-clean">
-                            <strong>Positionen</strong>
-                            <% for (let i = 0; i < 4; i++) { %>
-                              <div class="invoice-item-row-clean">
-                                <input name="description" placeholder="Leistung, z. B. Gartenpflege vor Ort" value="<%= i === 0 ? (leistung || a.kategorie || 'Gartenbau-Leistung') : '' %>">
-                                <input name="quantity" placeholder="Menge" value="<%= i === 0 ? '1' : '' %>">
-                                <input name="unit" placeholder="Einheit" value="<%= i === 0 ? 'Stk.' : '' %>">
-                                <input name="unitPrice" placeholder="Preis €">
-                              </div>
-                            <% } %>
-                          </div>
-                          <textarea name="invoiceNote" placeholder="Optionaler Hinweis auf der Rechnung"></textarea>
-                          <button type="submit">Rechnung / Quittung erstellen</button>
-                        </form>
-                      </div>
-                    </details>
-
                     <div class="admin-card-actions">
                       <details class="status-update-panel">
                         <summary>Status ändern & Kundeninfo schreiben</summary>

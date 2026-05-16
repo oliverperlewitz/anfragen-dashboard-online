@@ -233,6 +233,44 @@
     const dateInput = document.getElementById('wunschDatum');
     const timeSelect = document.getElementById('wunschUhrzeit');
     const slotHint = document.getElementById('slotHint');
+
+    // Feste Standard-Zeitfenster. Der Server prüft trotzdem nochmal,
+    // ob der Termin wirklich frei ist, bevor die Anfrage gespeichert wird.
+    const fallbackSlots = [
+      '08:00', '09:00', '10:00', '11:00',
+      '12:00', '13:00', '14:00', '15:00',
+      '16:00', '17:00', '18:00'
+    ];
+
+    function setTimeOptions(slots, message) {
+      timeSelect.innerHTML = '<option value="">Uhrzeit wählen</option>';
+
+      let availableCount = 0;
+      slots.forEach(slot => {
+        const time = typeof slot === 'string' ? slot : slot.time;
+        const available = typeof slot === 'string' ? true : slot.available !== false;
+        if (!time) return;
+
+        const option = document.createElement('option');
+        option.value = available ? time : '';
+        option.disabled = !available;
+        option.textContent = available ? `${time} Uhr` : `${time} Uhr – belegt`;
+        timeSelect.appendChild(option);
+        if (available) availableCount += 1;
+      });
+
+      timeSelect.disabled = availableCount === 0;
+      slotHint.textContent = message || (availableCount
+        ? `${availableCount} freie Uhrzeiten an diesem Tag verfügbar.`
+        : 'An diesem Tag sind keine freien Uhrzeiten mehr verfügbar. Bitte wähle ein anderes Datum.');
+    }
+
+    function resetTimeSelect() {
+      timeSelect.innerHTML = '<option value="">Bitte zuerst Datum wählen</option>';
+      timeSelect.disabled = true;
+      slotHint.textContent = 'Belegte Termine werden automatisch ausgeblendet.';
+    }
+
     if (dateInput && timeSelect) {
       const today = new Date();
       const yyyy = today.getFullYear();
@@ -242,34 +280,43 @@
 
       async function loadSlots() {
         const date = dateInput.value;
-        timeSelect.innerHTML = '<option value="">Lade freie Termine...</option>';
-        timeSelect.disabled = true;
         if (!date) {
-          timeSelect.innerHTML = '<option value="">Bitte zuerst Datum wählen</option>';
-          slotHint.textContent = 'Belegte Termine werden automatisch ausgeblendet.';
+          resetTimeSelect();
           return;
         }
+
+        timeSelect.innerHTML = '<option value="">Freie Uhrzeiten werden geladen...</option>';
+        timeSelect.disabled = true;
+        slotHint.textContent = 'Freie Uhrzeiten werden geprüft...';
+
         try {
-          const response = await fetch(`/api/available-slots?date=${encodeURIComponent(date)}`);
-          const data = await response.json();
-          const free = (data.slots || []).filter(slot => slot.available);
-          timeSelect.innerHTML = '<option value="">Uhrzeit wählen</option>';
-          free.forEach(slot => {
-            const option = document.createElement('option');
-            option.value = slot.time;
-            option.textContent = `${slot.time} Uhr`;
-            timeSelect.appendChild(option);
+          const response = await fetch(`/api/available-slots?date=${encodeURIComponent(date)}`, {
+            headers: { 'Accept': 'application/json' }
           });
-          timeSelect.disabled = free.length === 0;
-          slotHint.textContent = free.length
-            ? `${free.length} freie Termine an diesem Tag verfügbar.`
-            : 'An diesem Tag sind keine freien Termine verfügbar. Bitte wähle ein anderes Datum.';
+
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+          const data = await response.json();
+          const slots = Array.isArray(data.slots) ? data.slots : [];
+
+          if (!slots.length) {
+            setTimeOptions(fallbackSlots, 'Keine Kalenderdaten gefunden. Bitte wähle eine Uhrzeit; der Termin wird beim Absenden nochmal geprüft.');
+            return;
+          }
+
+          setTimeOptions(slots);
         } catch (error) {
-          timeSelect.innerHTML = '<option value="">Termine konnten nicht geladen werden</option>';
-          slotHint.textContent = 'Bitte versuche es später erneut oder sende die Anfrage ohne Wunschtermin.';
+          console.warn('Wunschtermin konnte nicht geladen werden:', error);
+          setTimeOptions(fallbackSlots, 'Die freien Termine konnten gerade nicht geladen werden. Du kannst trotzdem eine Wunsch-Uhrzeit wählen; wir prüfen sie beim Absenden nochmal.');
         }
       }
+
       dateInput.addEventListener('change', loadSlots);
+      dateInput.addEventListener('input', loadSlots);
+      resetTimeSelect();
+
+      // Falls der Browser/Autofill schon ein Datum gesetzt hat.
+      if (dateInput.value) loadSlots();
     }
   </script>
 

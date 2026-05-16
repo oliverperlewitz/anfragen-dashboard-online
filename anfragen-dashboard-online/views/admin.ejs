@@ -308,15 +308,38 @@
         </div>
       <% } %>
 
-      <div class="calendar-grid" data-calendar-grid>
+      <div class="calendar-grid calendar-grid-compact" data-calendar-grid>
         <% calendarDaysSafe.forEach(day => { %>
-          <div class="calendar-day <%= day.isToday ? 'is-today' : '' %>">
-            <div class="calendar-day-head">
-              <strong><%= day.label %></strong>
-              <span><%= day.date %></span>
-            </div>
-            <div class="calendar-slots">
-              <% day.slots.forEach(slot => { %>
+          <%
+            const daySlots = Array.isArray(day.slots) ? day.slots : [];
+            const dayEvents = daySlots.flatMap(slot => Array.isArray(slot.events) ? slot.events : []);
+            const freeCount = daySlots.filter(slot => slot.available).length;
+            const pendingCount = dayEvents.filter(event => event.calendarStatus === 'pending').length;
+            const confirmedCount = dayEvents.filter(event => event.calendarStatus === 'confirmed').length;
+            const workingCount = dayEvents.filter(event => event.calendarStatus === 'working').length;
+            const doneCount = dayEvents.filter(event => event.calendarStatus === 'done').length;
+          %>
+          <details class="calendar-day calendar-day-compact <%= day.isToday ? 'is-today' : '' %>">
+            <summary class="calendar-day-summary">
+              <div class="calendar-day-title">
+                <strong><%= day.label %></strong>
+                <span><%= day.date %></span>
+              </div>
+              <div class="calendar-day-stats">
+                <% if (dayEvents.length) { %>
+                  <span class="day-stat total"><%= dayEvents.length %> Termin<%= dayEvents.length === 1 ? '' : 'e' %></span>
+                <% } else { %>
+                  <span class="day-stat free">frei</span>
+                <% } %>
+                <% if (pendingCount) { %><span class="day-stat pending"><%= pendingCount %> möglich</span><% } %>
+                <% if (confirmedCount) { %><span class="day-stat confirmed"><%= confirmedCount %> bestätigt</span><% } %>
+                <% if (workingCount) { %><span class="day-stat working"><%= workingCount %> in Arbeit</span><% } %>
+                <% if (doneCount) { %><span class="day-stat done"><%= doneCount %> erledigt</span><% } %>
+              </div>
+              <span class="calendar-open-hint">Uhrzeiten anzeigen</span>
+            </summary>
+            <div class="calendar-slots compact-slots">
+              <% daySlots.forEach(slot => { %>
                 <div class="calendar-slot <%= slot.available ? 'slot-free' : 'slot-booked' %>" data-drop-date="<%= slot.date %>" data-drop-time="<%= slot.time %>">
                   <div class="slot-time"><%= slot.time %></div>
                   <% if (slot.events.length) { %>
@@ -333,7 +356,7 @@
                 </div>
               <% }) %>
             </div>
-          </div>
+          </details>
         <% }) %>
       </div>
     </section>

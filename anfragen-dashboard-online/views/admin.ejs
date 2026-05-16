@@ -43,6 +43,10 @@
     const photoTitle = (photo) => [photo.originalName || 'Foto', photo.uploadedAtLabel || '', photo.uploadedBy ? ('von ' + photo.uploadedBy) : ''].filter(Boolean).join(' · ');
     const photoUrl = (a, photo) => `/admin/photo/${encodeURIComponent(a.id)}/${encodeURIComponent(photo.id)}`;
     const photoDownloadUrl = (a, photo) => `/admin/photo/${encodeURIComponent(a.id)}/${encodeURIComponent(photo.id)}/download`;
+    const shortText = (value, length = 1200) => {
+      const text = String(value || '');
+      return text.length > length ? text.slice(0, length) + '…' : text;
+    };
 
   %>
 
@@ -185,6 +189,34 @@
                     <details class="request-details-clean">
                       <summary>Details zum Auftrag anzeigen</summary>
                       <p><%= detailsText || '-' %></p>
+                    </details>
+
+                    <% const replies = asArray(a.customerReplies); %>
+                    <details class="collapsible-admin-block customer-replies-block" <%= replies.length ? 'open' : '' %>>
+                      <summary>Kundenantworten anzeigen <span class="summary-count"><%= replies.length %></span></summary>
+                      <div class="collapsible-admin-content">
+                        <h4>Kundenantworten</h4>
+                        <p class="internal-note-hint">Antworten auf E-Mails werden automatisch diesem Auftrag zugeordnet, wenn die Anfragenummer im Betreff steht.</p>
+                        <% if (replies.length) { %>
+                          <div class="reply-list">
+                            <% replies.forEach(reply => { %>
+                              <article class="reply-item">
+                                <div class="reply-head">
+                                  <strong><%= reply.from || '-' %></strong>
+                                  <span><%= reply.receivedAtLabel || '' %></span>
+                                </div>
+                                <div class="reply-subject"><%= reply.subject || '(ohne Betreff)' %></div>
+                                <pre><%= shortText(reply.text || '') %></pre>
+                                <% if (reply.photoCount) { %>
+                                  <small>📎 <%= reply.photoCount %> Bild<%= reply.photoCount === 1 ? '' : 'er' %> aus dieser Antwort wurden bei den Kundenfotos gespeichert.</small>
+                                <% } %>
+                              </article>
+                            <% }) %>
+                          </div>
+                        <% } else { %>
+                          <p class="evidence-empty">Noch keine Kundenantworten eingegangen.</p>
+                        <% } %>
+                      </div>
                     </details>
 
                     <details class="collapsible-admin-block evidence-block">

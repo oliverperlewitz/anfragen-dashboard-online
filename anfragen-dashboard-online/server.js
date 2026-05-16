@@ -751,15 +751,29 @@ function statusText(status) {
   return `Der Status deiner Anfrage wurde auf "${status}" geändert.`;
 }
 
+
+function getRequestCode(anfrage) {
+  return String(anfrage?.ticketCode || anfrage?.id || '').slice(-6) || '000000';
+}
+
+function getReplyToForRequest(anfrage) {
+  return process.env.REPLY_TO_EMAIL || getMailFrom() || undefined;
+}
+
+function subjectWithRequestCode(base, anfrage) {
+  return `${base} #${getRequestCode(anfrage)}`;
+}
+
 async function sendCustomerConfirmation(anfrage) {
   if (!anfrage.email) {
     logMail('Kunden-Bestätigung übersprungen: Anfrage hat keine E-Mail-Adresse.', { requestId: anfrage.id, name: anfrage.name });
     return false;
   }
 
-  const subject = 'Bestätigung deiner Anfrage bei GrünWerk Gartenbau';
+  const subject = subjectWithRequestCode('Bestätigung deiner Anfrage bei GrünWerk Gartenbau', anfrage);
   const text = `Hallo ${anfrage.name},\n\n` +
     `vielen Dank für deine Anfrage bei GrünWerk Gartenbau. Wir haben deine Anfrage erhalten und melden uns schnellstmöglich bei dir.\n\n` +
+    `Anfragenummer: #${getRequestCode(anfrage)}\n` +
     `Leistung: ${anfrage.kategorie || '-'}\n` +
     `Telefon: ${anfrage.telefon || '-'}\n` +
     `Adresse / Ort: ${anfrage.adresse || '-'}\n` +
@@ -771,6 +785,7 @@ async function sendCustomerConfirmation(anfrage) {
     <div style="font-family:Arial,sans-serif;line-height:1.6;color:#193222">
       <h2>Danke für deine Anfrage, ${escapeHtml(anfrage.name)}!</h2>
       <p>Wir haben deine Anfrage erhalten und melden uns schnellstmöglich bei dir.</p>
+      <p><strong>Anfragenummer:</strong> #${escapeHtml(getRequestCode(anfrage))}</p>
       <div style="background:#f6f3eb;border-radius:14px;padding:16px;margin:18px 0">
         <p><strong>Leistung:</strong> ${escapeHtml(anfrage.kategorie || '-')}</p>
         <p><strong>Telefon:</strong> ${escapeHtml(anfrage.telefon || '-')}</p>
@@ -783,7 +798,7 @@ async function sendCustomerConfirmation(anfrage) {
     </div>
   `;
 
-  await sendMail({ to: anfrage.email, subject, text, html, type: 'Kunden-Bestätigung' });
+  await sendMail({ to: anfrage.email, subject, text, html, replyTo: getReplyToForRequest(anfrage), type: 'Kunden-Bestätigung' });
 }
 
 async function sendAdminNotification(anfrage) {
@@ -812,9 +827,10 @@ async function sendStatusEmail(anfrage, oldStatus, newStatus) {
     return false;
   }
 
-  const subject = `Update zu deiner Anfrage: ${newStatus}`;
+  const subject = subjectWithRequestCode(`Update zu deiner Anfrage: ${newStatus}`, anfrage);
   const text = `Hallo ${anfrage.name},\n\n` +
     `der Status deiner Anfrage bei GrünWerk Gartenbau wurde geändert.\n\n` +
+    `Anfragenummer: #${getRequestCode(anfrage)}\n` +
     `Alter Status: ${oldStatus}\n` +
     `Neuer Status: ${newStatus}\n\n` +
     `${statusText(newStatus)}\n\n` +
@@ -825,6 +841,7 @@ async function sendStatusEmail(anfrage, oldStatus, newStatus) {
       <h2>Status-Update zu deiner Anfrage</h2>
       <p>Hallo ${escapeHtml(anfrage.name)},</p>
       <p>der Status deiner Anfrage wurde geändert.</p>
+      <p><strong>Anfragenummer:</strong> #${escapeHtml(getRequestCode(anfrage))}</p>
       <div style="background:#f6f3eb;border-radius:14px;padding:16px;margin:18px 0">
         <p><strong>Alter Status:</strong> ${escapeHtml(oldStatus)}</p>
         <p><strong>Neuer Status:</strong> ${escapeHtml(newStatus)}</p>
@@ -834,7 +851,146 @@ async function sendStatusEmail(anfrage, oldStatus, newStatus) {
     </div>
   `;
 
-  await sendMail({ to: anfrage.email, subject, text, html, type: 'Status-Mail' });
+  await sendMail({ to: anfrage.email, subject, text, html, replyTo: getReplyToForRequest(anfrage), type: 'Status-Mail' });
+}
+
+
+function getHeaderValue(req, name) {
+  const value = req.headers[String(name).toLowerCase()];
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function verifyInboundWebhookToken(req) {
+  const expected = process.env.INBOUND_WEBHOOK_TOKEN;
+  if (!expected) return true;
+  const received = req.query.token || getHeaderValue(req, 'x-webhook-token') || getHeaderValue(req, 'x-inbound-token');
+  return String(received || '') === String(expected);
+}
+
+function firstString(...values) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (Array.isArray(value) && value.length) {
+      const nested = firstString(...value);
+      if (nested) return nested;
+    }
+    if (value && typeof value === 'object') {
+      const nested = firstString(value.email, value.address, value.text, value.name);
+      if (nested) return nested;
+    }
+  }
+  return '';
+}
+
+function extractInboundPayload(body = {}) {
+  const data = body.data || body.email || body;
+  const from = firstString(data.from, data.sender, data.from_email, data.fromEmail);
+  const to = firstString(data.to, data.recipients, data.recipient, data.to_email, data.toEmail);
+  const subject = firstString(data.subject, body.subject);
+  const text = firstString(data.text, data.text_body, data.textBody, data.plain, data.plainText, data.body?.text, data.body);
+  const html = firstString(data.html, data.html_body, data.htmlBody, data.body?.html);
+  const attachments = data.attachments || data.files || body.attachments || [];
+  return { from, to, subject, text, html, attachments: Array.isArray(attachments) ? attachments : [] };
+}
+
+function stripHtmlToText(html) {
+  return String(html || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .trim();
+}
+
+function extractRequestCodes(...texts) {
+  const combined = texts.filter(Boolean).map(String).join('\n');
+  const codes = [];
+  const patterns = [/#\s*([0-9]{4,})/g, /(?:Anfrage|Anfragenummer|Ticket|Auftrag)\s*[:#-]?\s*([0-9]{4,})/gi];
+  for (const pattern of patterns) {
+    let match;
+    while ((match = pattern.exec(combined))) {
+      if (!codes.includes(match[1])) codes.push(match[1]);
+    }
+  }
+  return codes;
+}
+
+function attachmentToPhoto(attachment, from) {
+  const filename = sanitizeFileName(attachment.filename || attachment.name || attachment.originalName || 'kundenantwort-foto');
+  const mimeType = String(attachment.contentType || attachment.content_type || attachment.mimeType || attachment.type || '').toLowerCase();
+  if (!ALLOWED_IMAGE_TYPES.includes(mimeType)) return null;
+
+  let base64 = attachment.content || attachment.data || attachment.body || attachment.base64 || '';
+  if (typeof base64 !== 'string') return null;
+  if (base64.startsWith('data:')) base64 = base64.split(',')[1] || '';
+  base64 = base64.replace(/\s/g, '');
+  if (!base64) return null;
+
+  const size = Buffer.from(base64, 'base64').length;
+  if (size > MAX_PHOTO_SIZE_BYTES) return null;
+
+  return {
+    id: crypto.randomUUID(),
+    type: 'customer-reply',
+    originalName: filename,
+    mimeType,
+    size,
+    sizeKb: Math.max(1, Math.round(size / 1024)),
+    uploadedBy: `Kundenantwort${from ? ' von ' + cleanText(from, 80) : ''}`,
+    uploadedAt: new Date().toISOString(),
+    uploadedAtLabel: formatBerlinDateTime(),
+    dataUrl: `data:${mimeType};base64,${base64}`
+  };
+}
+
+function findAnfrageByCode(anfragen, codes) {
+  for (const code of codes) {
+    const cleanCode = String(code || '').replace(/\D/g, '');
+    if (!cleanCode) continue;
+    const found = anfragen.find(a => String(a.id || '') === cleanCode || String(a.id || '').slice(-6) === cleanCode.slice(-6));
+    if (found) return found;
+  }
+  return null;
+}
+
+async function saveInboundCustomerReply(emailData, req) {
+  const cleanTextBody = cleanText(emailData.text || stripHtmlToText(emailData.html), 8000);
+  const codes = extractRequestCodes(emailData.subject, cleanTextBody, emailData.html);
+  const anfragen = await readAnfragen();
+  const anfrage = findAnfrageByCode(anfragen, codes);
+
+  if (!anfrage) {
+    console.warn('[INBOUND] Kundenantwort konnte keiner Anfrage zugeordnet werden.', { subject: emailData.subject, from: emailData.from, codes });
+    return { ok: false, reason: 'request_not_found', codes };
+  }
+
+  const photos = emailData.attachments.map(attachment => attachmentToPhoto(attachment, emailData.from)).filter(Boolean);
+  const reply = {
+    id: crypto.randomUUID(),
+    from: cleanText(emailData.from, 180) || '-',
+    to: cleanText(emailData.to, 180) || '-',
+    subject: cleanText(emailData.subject, 300) || '(ohne Betreff)',
+    text: cleanTextBody || '(keine Textantwort erkannt)',
+    receivedAt: new Date().toISOString(),
+    receivedAtLabel: formatBerlinDateTime(),
+    photoCount: photos.length,
+    attachmentCount: emailData.attachments.length
+  };
+
+  anfrage.customerReplies = Array.isArray(anfrage.customerReplies) ? anfrage.customerReplies : [];
+  anfrage.customerReplies.unshift(reply);
+  anfrage.customerPhotos = Array.isArray(anfrage.customerPhotos) ? anfrage.customerPhotos : [];
+  anfrage.customerPhotos.unshift(...photos);
+
+  await createBackup('before-inbound-reply');
+  await writeAnfragen(anfragen);
+  addActivity(req, 'customer_reply_received', { requestId: anfrage.id, code: getRequestCode(anfrage), from: reply.from, photos: photos.length });
+  console.log('[INBOUND] Kundenantwort gespeichert', { requestId: anfrage.id, code: getRequestCode(anfrage), from: reply.from, photos: photos.length });
+  return { ok: true, requestId: anfrage.id, code: getRequestCode(anfrage), photos: photos.length };
 }
 
 function requireLogin(req, res, next) {
@@ -1008,6 +1164,7 @@ app.use((req, res, next) => {
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+app.use('/webhooks/resend', express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -1136,6 +1293,7 @@ app.post('/anfrage', formLimiter, handleUpload(upload.array('customerPhotos', 5)
     beforePhotos: [],
     afterPhotos: [],
     internalNotes: [],
+    customerReplies: [],
     status: 'Neu',
     datum: formatBerlinDateTime()
   };
@@ -1149,6 +1307,19 @@ app.post('/anfrage', formLimiter, handleUpload(upload.array('customerPhotos', 5)
   await sendAdminNotification(neueAnfrage);
 
   res.redirect('/?success=1');
+});
+
+
+app.post('/webhooks/resend/inbound', async (req, res) => {
+  try {
+    if (!verifyInboundWebhookToken(req)) return res.status(401).json({ ok: false, error: 'invalid_token' });
+    const emailData = extractInboundPayload(req.body || {});
+    const result = await saveInboundCustomerReply(emailData, req);
+    return res.status(result.ok ? 200 : 202).json(result);
+  } catch (error) {
+    console.error('[INBOUND] Webhook-Fehler:', error);
+    return res.status(500).json({ ok: false, error: 'inbound_processing_failed' });
+  }
 });
 
 app.get('/login', (req, res) => {

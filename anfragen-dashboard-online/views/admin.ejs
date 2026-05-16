@@ -221,29 +221,66 @@
 
   %>
 
-  <header class="admin-shell-header">
-    <a class="brand" href="/admin" aria-label="GrünWerk Admin Dashboard">
-      <span class="brand-icon">☘</span>
+  <aside class="admin-sidebar" aria-label="Admin Navigation">
+    <a class="sidebar-brand" href="/admin" aria-label="GrünWerk Admin Cockpit">
+      <span class="brand-icon sidebar-brand-icon">☘</span>
       <span>
         <strong>GrünWerk</strong>
         <small>Admin Cockpit</small>
       </span>
     </a>
-    <div class="admin-header-actions">
-      <div class="admin-user-chip" title="Eingeloggt als <%= username || 'Admin' %>">
-        <span class="admin-user-dot">👋</span>
-        <span>Hallo <strong><%= username || 'Admin' %></strong> · <em><%= roleLabel || 'Admin' %></em></span>
-      </div>
+
+    <nav class="sidebar-nav">
+      <a class="sidebar-link active" href="#uebersicht"><span>🏠</span> Übersicht</a>
+      <a class="sidebar-link" href="#anfragen"><span>📋</span> Anfragen</a>
+      <a class="sidebar-link" href="#kalender"><span>📅</span> Kalender</a>
+      <a class="sidebar-link" href="#emails"><span>✉️</span> E-Mails</a>
+      <details class="sidebar-group" open>
+        <summary><span>🛡️</span> Sicherheit</summary>
+        <a href="#backups">Backups</a>
+        <a href="#aktivitaetsprotokoll">Aktivitätsprotokoll</a>
+        <a href="#login-historie">Login-Historie</a>
+        <a href="#geloeschte-anfragen">Gelöschte Anfragen</a>
+      </details>
       <% if (permissions && permissions.canManageUsers) { %>
-        <a class="button secondary" href="/admin/users">User verwalten</a>
+        <a class="sidebar-link" href="/admin/users"><span>👥</span> Benutzer</a>
       <% } %>
-      <a class="button secondary" href="/" target="_blank">Website ansehen</a>
-      <form action="/logout" method="POST"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="danger" type="submit">Ausloggen</button></form>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <a class="sidebar-link" href="/" target="_blank"><span>🌐</span> Website ansehen</a>
+      <form action="/logout" method="POST">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button class="sidebar-logout" type="submit"><span>↪</span> Ausloggen</button>
+      </form>
     </div>
+  </aside>
+
+  <header class="admin-shell-header admin-shell-header-compact">
+    <button class="sidebar-mobile-toggle" type="button" data-sidebar-toggle aria-label="Navigation öffnen">☰</button>
+    <div class="admin-header-spacer"></div>
+    <details class="admin-profile-menu" id="profil">
+      <summary class="admin-user-chip" title="Eingeloggt als <%= username || 'Admin' %>">
+        <span class="admin-user-dot">👋</span>
+        <span><strong><%= username || 'Admin' %></strong> · <em><%= roleLabel || 'Admin' %></em></span>
+        <span class="profile-chevron">⌄</span>
+      </summary>
+      <div class="profile-menu-panel">
+        <a href="#profil">Profil</a>
+        <% if (permissions && permissions.canManageUsers) { %>
+          <a href="/admin/users">Benutzer verwalten</a>
+        <% } %>
+        <a href="/" target="_blank">Website ansehen</a>
+        <form action="/logout" method="POST">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit">Ausloggen</button>
+        </form>
+      </div>
+    </details>
   </header>
 
   <main class="admin-pro-main">
-    <section class="admin-hero-panel">
+    <section id="uebersicht" class="admin-hero-panel">
       <div>
         <p class="admin-kicker">Anfragen Management</p>
         <h1>Dashboard</h1>
@@ -264,7 +301,7 @@
       <section class="admin-alert error-alert"><%= mailError %></section>
     <% } %>
 
-    <section class="admin-toolbar-panel mail-sync-panel">
+    <section id="emails" class="admin-toolbar-panel mail-sync-panel">
       <div>
         <strong>Kundenantworten aus STRATO abrufen</strong>
         <p>Importiert neue Antworten aus dem STRATO-Postfach und ordnet sie über die Anfragenummer im Betreff zu.</p>
@@ -439,7 +476,7 @@
       </form>
     </section>
 
-    <section class="department-overview">
+    <section id="anfragen" class="department-overview">
       <% grouped.forEach(dep => { %>
         <a class="department-tile" href="#dep-<%= dep.name.toLowerCase().replaceAll(' ', '-').replaceAll('&', 'und') %>">
           <span class="department-icon"><%= dep.icon %></span>
@@ -856,8 +893,48 @@
     <% } %>
 
 
+    <% if (permissions && (permissions.canDownloadBackups || permissions.canViewActivity)) { %>
+      <section id="sicherheit" class="admin-panel security-hub-panel">
+        <div class="department-section-head compact-head">
+          <div>
+            <p class="admin-kicker">Sicherheit</p>
+            <h2>Sicherheitszentrale</h2>
+            <p>Backups, Aktivitäten, Login-Historie und gelöschte Anfragen an einem Ort.</p>
+          </div>
+        </div>
+        <div class="security-hub-grid">
+          <a class="security-hub-card" href="#backups"><span>💾</span><strong>Backups</strong><small>Sicherungen herunterladen</small></a>
+          <a class="security-hub-card" href="#aktivitaetsprotokoll"><span>📜</span><strong>Aktivitätsprotokoll</strong><small>Statusänderungen und Aktionen</small></a>
+          <a class="security-hub-card" href="#login-historie"><span>🔐</span><strong>Login-Historie</strong><small>Anmeldungen im Überblick</small></a>
+          <a class="security-hub-card" href="#geloeschte-anfragen"><span>🗑️</span><strong>Gelöschte Anfragen</strong><small>Archiv und Kontrolle</small></a>
+        </div>
+      </section>
+    <% } %>
+
+    <section id="login-historie" class="admin-panel security-section-card placeholder-security-panel">
+      <div class="department-section-head compact-head">
+        <div>
+          <p class="admin-kicker">Sicherheit</p>
+          <h2>Login-Historie</h2>
+          <p>Login-Ereignisse werden aktuell im Aktivitätsprotokoll erfasst.</p>
+        </div>
+        <a class="button secondary" href="#aktivitaetsprotokoll">Zum Aktivitätsprotokoll</a>
+      </div>
+    </section>
+
+    <section id="geloeschte-anfragen" class="admin-panel security-section-card placeholder-security-panel">
+      <div class="department-section-head compact-head">
+        <div>
+          <p class="admin-kicker">Sicherheit</p>
+          <h2>Gelöschte Anfragen</h2>
+          <p>Gelöschte Anfragen werden über Backups und Aktivitätsprotokoll nachvollziehbar dokumentiert.</p>
+        </div>
+        <a class="button secondary" href="#backups">Backups öffnen</a>
+      </div>
+    </section>
+
     <% if (permissions && permissions.canDownloadBackups) { %>
-    <section class="admin-panel backup-panel">
+    <section id="backups" class="admin-panel backup-panel security-section-card">
       <div class="department-section-head compact-head">
         <div>
           <p class="admin-kicker">Datensicherung</p>
@@ -893,7 +970,7 @@
 
 
     <% if (permissions && permissions.canViewActivity && activityLog && activityLog.length) { %>
-      <section class="admin-panel activity-panel">
+      <section id="aktivitaetsprotokoll" class="admin-panel activity-panel security-section-card">
         <div class="department-section-head compact-head">
           <div>
             <p class="admin-kicker">Sicherheit</p>
@@ -1087,6 +1164,19 @@
         `;
         document.body.appendChild(form);
         form.submit();
+      });
+    });
+
+
+    document.querySelectorAll('[data-sidebar-toggle]').forEach((button) => {
+      button.addEventListener('click', () => {
+        document.body.classList.toggle('sidebar-open');
+      });
+    });
+
+    document.querySelectorAll('.sidebar-link, .sidebar-group a').forEach((link) => {
+      link.addEventListener('click', () => {
+        document.body.classList.remove('sidebar-open');
       });
     });
   </script>

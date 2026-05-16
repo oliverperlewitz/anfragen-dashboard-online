@@ -22,7 +22,6 @@
     "resend": "^4.0.1",
     "imapflow": "^1.0.186",
     "nodemailer": "^6.9.15",
-    "pdfkit": "^0.15.0",
-    "archiver": "^7.0.1"
+    "pdfkit": "^0.15.0"
   }
 }

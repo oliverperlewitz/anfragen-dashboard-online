@@ -846,12 +846,6 @@
                     </details>
 
                     <div class="admin-card-actions">
-                    <details class="archive-lite-panel" open>
-                      <summary>Nachweis & Archiv</summary>
-                      <p>Alle wichtigen Auftragsdaten, Rechnung, Fotos, Notizen, Kundenantworten und Statusverlauf als ZIP herunterladen.</p>
-                      <a class="button secondary archive-download-button" href="/admin/requests/<%= a.id %>/archive.zip">📦 Auftragsakte herunterladen</a>
-                    </details>
-
                       <details class="status-update-panel">
                         <summary>Status ändern & Kundeninfo schreiben</summary>
                         <form action="/admin/status/<%= a.id %>" method="POST" class="status-form status-smart-form" data-status-form>

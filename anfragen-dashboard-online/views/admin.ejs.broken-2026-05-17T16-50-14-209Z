@@ -6,7 +6,6 @@
   <title>Admin Dashboard</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/invoice-lite.css">
-  <link rel="stylesheet" href="/status-stack-final.css">
 </head>
 <body class="admin-body admin-pro-body">
   <% 
@@ -69,75 +68,311 @@
       'Storniert'
     ];
     const statusTemplates = {
-      'Rückfrage offen': [
-        {
-          label: 'Fehlende Informationen allgemein',
-          text: 'Hallo,\n\nwir haben deine Anfrage geprüft. Für eine genaue Einschätzung benötigen wir noch ein paar Informationen:\n\n- genaue Adresse\n- Fotos vom Bereich\n- ungefähre Fläche in m²\n\nDu kannst einfach auf diese E-Mail antworten.\n\nViele Grüße\nGrünWerk Gartenbau'
-        },
-        {
-          label: 'Weitere Fotos benötigt',
-          text: 'Hallo,\n\nfür eine bessere Einschätzung benötigen wir bitte noch ein paar Fotos vom betroffenen Bereich.\n\nBitte fotografiere möglichst den gesamten Bereich und wichtige Details.\n\nViele Grüße\nGrünWerk Gartenbau'
-        }
+      "Neu": [
+            {
+                  "label": "Eingang bestätigt",
+                  "text": "Hallo,
+
+wir haben deine Anfrage erhalten und prüfen deine Angaben. Wir melden uns zeitnah mit den nächsten Schritten bei dir.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            },
+            {
+                  "label": "Danke für die Anfrage",
+                  "text": "Hallo,
+
+danke für deine Anfrage. Wir schauen uns dein Anliegen an und geben dir so schnell wie möglich eine Rückmeldung.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            }
       ],
-      'Besichtigung geplant': [
-        {
-          label: 'Standard-Besichtigung',
-          text: 'Hallo,\n\nwir haben eine Besichtigung für [Datum] um [Uhrzeit] eingeplant.\n\nBitte sorge dafür, dass der Bereich zugänglich ist.\n\nViele Grüße\nGrünWerk Gartenbau'
-        },
-        {
-          label: 'Termin bestätigen lassen',
-          text: 'Hallo,\n\nwir können dir eine Besichtigung am [Datum] um [Uhrzeit] anbieten.\n\nBitte antworte kurz, ob dieser Termin für dich passt.\n\nViele Grüße\nGrünWerk Gartenbau'
-        }
+      "Gesehen": [
+            {
+                  "label": "Anfrage gesehen",
+                  "text": "Hallo,
+
+wir haben deine Anfrage gesehen und nehmen sie jetzt in die Prüfung. Sobald wir die nächsten Schritte einschätzen können, melden wir uns bei dir.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            }
       ],
-      'Angebot gesendet': [
-        {
-          label: 'Angebot verschickt',
-          text: 'Hallo,\n\nwir haben dir unser Angebot zu deiner Anfrage gesendet.\n\nBei Fragen kannst du einfach auf diese E-Mail antworten.\n\nViele Grüße\nGrünWerk Gartenbau'
-        }
+      "Rückfrage offen": [
+            {
+                  "label": "Fehlende Informationen allgemein",
+                  "text": "Hallo,
+
+wir haben deine Anfrage geprüft. Für eine genaue Einschätzung benötigen wir noch ein paar Informationen:
+
+- genaue Adresse
+- Fotos vom Bereich
+- ungefähre Fläche in m²
+
+Du kannst einfach auf diese E-Mail antworten.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            },
+            {
+                  "label": "Weitere Fotos benötigt",
+                  "text": "Hallo,
+
+für eine bessere Einschätzung benötigen wir bitte noch ein paar Fotos vom betroffenen Bereich.
+
+Bitte fotografiere möglichst den gesamten Bereich und wichtige Details.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            }
       ],
-      'Warten auf Kundenantwort': [
-        {
-          label: 'Freundliche Erinnerung',
-          text: 'Hallo,\n\nwir wollten kurz nachfragen, ob du zu deiner Anfrage bereits eine Entscheidung treffen konntest.\n\nBei Fragen sind wir gerne für dich da.\n\nViele Grüße\nGrünWerk Gartenbau'
-        }
+      "Besichtigung geplant": [
+            {
+                  "label": "Besichtigung eingeplant",
+                  "text": "Hallo,
+
+wir haben eine Besichtigung für deine Anfrage eingeplant. Danach können wir den Aufwand genauer einschätzen und dir die nächsten Schritte mitteilen.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            },
+            {
+                  "label": "Termin bestätigen lassen",
+                  "text": "Hallo,
+
+wir können dir eine Besichtigung am [Datum] um [Uhrzeit] anbieten.
+
+Bitte antworte kurz, ob dieser Termin für dich passt.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            }
       ],
-      'Termin vereinbart': [
-        {
-          label: 'Arbeitstermin bestätigt',
-          text: 'Hallo,\n\nder Termin für die Ausführung ist für [Datum] um [Uhrzeit] vereinbart.\n\nBitte stelle sicher, dass der Bereich zugänglich ist.\n\nViele Grüße\nGrünWerk Gartenbau'
-        }
+      "Angebot wird erstellt": [
+            {
+                  "label": "Angebot in Vorbereitung",
+                  "text": "Hallo,
+
+wir erstellen aktuell dein Angebot. Sobald alles geprüft ist, senden wir dir die Details zu.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            }
       ],
-      'In Bearbeitung': [
-        {
-          label: 'Auftrag gestartet',
-          text: 'Hallo,\n\nwir haben mit deinem Auftrag begonnen.\n\nFalls sich während der Ausführung etwas Wichtiges ergibt, melden wir uns bei dir.\n\nViele Grüße\nGrünWerk Gartenbau'
-        }
+      "Angebot gesendet": [
+            {
+                  "label": "Angebot verschickt",
+                  "text": "Hallo,
+
+wir haben dir unser Angebot zu deiner Anfrage gesendet.
+
+Bei Fragen kannst du einfach auf diese E-Mail antworten.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            },
+            {
+                  "label": "Angebot nachfassen",
+                  "text": "Hallo,
+
+wir wollten kurz nachfragen, ob du unser Angebot erhalten hast und ob noch Fragen offen sind.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            }
       ],
-      'Pausiert': [
-        {
-          label: 'Wetter / Material / Termin',
-          text: 'Hallo,\n\nwir müssen die Arbeiten vorübergehend pausieren. Grund: [Grund eintragen].\n\nWir melden uns, sobald es weitergeht.\n\nViele Grüße\nGrünWerk Gartenbau'
-        }
+      "Warten auf Kundenantwort": [
+            {
+                  "label": "Freundliche Erinnerung",
+                  "text": "Hallo,
+
+wir wollten kurz nachfragen, ob du zu deiner Anfrage bereits eine Rückmeldung für uns hast.
+
+Sobald wir deine Antwort erhalten, können wir mit den nächsten Schritten weitermachen.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            },
+            {
+                  "label": "Antwort benötigt",
+                  "text": "Hallo,
+
+wir warten aktuell noch auf deine Rückmeldung, bevor wir weitermachen können.
+
+Bitte antworte kurz auf diese E-Mail, damit wir deine Anfrage weiter bearbeiten können.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            }
       ],
-      'Erledigt': [
-        {
-          label: 'Arbeiten abgeschlossen',
-          text: 'Hallo,\n\ndie Arbeiten wurden abgeschlossen.\n\nVielen Dank für dein Vertrauen. Bei Fragen kannst du dich gerne melden.\n\nViele Grüße\nGrünWerk Gartenbau'
-        }
+      "Angenommen": [
+            {
+                  "label": "Auftrag angenommen",
+                  "text": "Hallo,
+
+vielen Dank für deine Zusage. Wir haben den Auftrag angenommen und planen jetzt die weiteren Schritte.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            }
       ],
-      'Abgerechnet': [
-        {
-          label: 'Rechnung / Abrechnung',
-          text: 'Hallo,\n\nder Auftrag wurde abgerechnet.\n\nDie Rechnung erhältst du separat bzw. wurde bereits übermittelt.\n\nViele Grüße\nGrünWerk Gartenbau'
-        }
+      "Termin vereinbart": [
+            {
+                  "label": "Arbeitstermin bestätigt",
+                  "text": "Hallo,
+
+der Termin für die Ausführung ist für [Datum] um [Uhrzeit] vereinbart.
+
+Bitte stelle sicher, dass der Bereich zugänglich ist.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            },
+            {
+                  "label": "Termin Erinnerung",
+                  "text": "Hallo,
+
+kurze Erinnerung: Unser Termin ist am [Datum] um [Uhrzeit].
+
+Falls sich bei dir etwas ändert, gib uns bitte rechtzeitig Bescheid.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            }
       ],
-      'Storniert': [
-        {
-          label: 'Auftrag storniert',
-          text: 'Hallo,\n\nder Auftrag wurde storniert.\n\nFalls du später erneut Unterstützung brauchst, kannst du dich gerne wieder melden.\n\nViele Grüße\nGrünWerk Gartenbau'
-        }
+      "In Bearbeitung": [
+            {
+                  "label": "Auftrag gestartet",
+                  "text": "Hallo,
+
+wir haben mit deinem Auftrag begonnen.
+
+Falls sich während der Ausführung etwas Wichtiges ergibt, melden wir uns bei dir.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            }
+      ],
+      "Pausiert": [
+            {
+                  "label": "Wetter / Material / Termin",
+                  "text": "Hallo,
+
+wir müssen die Arbeiten vorübergehend pausieren. Grund: [Grund eintragen].
+
+Wir melden uns, sobald es weitergeht.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            },
+            {
+                  "label": "Neue Absprache nötig",
+                  "text": "Hallo,
+
+wir pausieren den Auftrag vorübergehend, weil noch eine kurze Absprache nötig ist.
+
+Bitte melde dich kurz bei uns, damit wir den Auftrag sauber fortsetzen können.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            }
+      ],
+      "Erledigt": [
+            {
+                  "label": "Arbeiten abgeschlossen",
+                  "text": "Hallo,
+
+die Arbeiten wurden abgeschlossen.
+
+Vielen Dank für dein Vertrauen. Bei Fragen kannst du dich gerne melden.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            },
+            {
+                  "label": "Abschluss mit Dank",
+                  "text": "Hallo,
+
+dein Auftrag ist erfolgreich abgeschlossen. Vielen Dank für die angenehme Zusammenarbeit.
+
+Wir freuen uns, wenn du dich bei zukünftigen Gartenarbeiten wieder bei uns meldest.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            }
+      ],
+      "Abgerechnet": [
+            {
+                  "label": "Rechnung / Abrechnung",
+                  "text": "Hallo,
+
+der Auftrag wurde abgerechnet.
+
+Die Rechnung erhältst du separat bzw. wurde bereits übermittelt.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            },
+            {
+                  "label": "Rechnung folgt",
+                  "text": "Hallo,
+
+der Auftrag ist abgerechnet. Die Rechnung wird vorbereitet und dir zeitnah zugeschickt.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            }
+      ],
+      "Bezahlt": [
+            {
+                  "label": "Zahlung erhalten",
+                  "text": "Hallo,
+
+wir haben deine Zahlung erhalten. Vielen Dank.
+
+Der Auftrag ist damit vollständig abgeschlossen.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            }
+      ],
+      "Abgelehnt": [
+            {
+                  "label": "Auftrag kann nicht umgesetzt werden",
+                  "text": "Hallo,
+
+danke für deine Anfrage. Leider können wir diesen Auftrag aktuell nicht passend umsetzen.
+
+Wir bitten um Verständnis und wünschen dir weiterhin alles Gute.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            }
+      ],
+      "Storniert": [
+            {
+                  "label": "Auftrag storniert",
+                  "text": "Hallo,
+
+der Auftrag wurde storniert.
+
+Falls du später erneut Unterstützung brauchst, kannst du dich gerne wieder melden.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            },
+            {
+                  "label": "Storno bestätigt",
+                  "text": "Hallo,
+
+wir bestätigen hiermit die Stornierung deiner Anfrage bzw. deines Auftrags.
+
+Viele Grüße
+GrünWerk Gartenbau"
+            }
       ]
-    };
+};
     const total = anfragen.length;
     const countStatus = (name) => anfragen.filter(a => (a.status || 'Neu') === name).length;
     const grouped = departments.map(dep => ({ ...dep, items: anfragen.filter(a => getDepartment(a) === dep.name) }));
@@ -846,14 +1081,8 @@
                       </div>
                     </details>
 
-                    <div class="admin-card-actions">
-                    <details class="archive-lite-panel" open>
-                      <summary>Nachweis & Archiv</summary>
-                      <p>Alle wichtigen Auftragsdaten, Rechnung, Fotos, Notizen, Kundenantworten und Statusverlauf als ZIP herunterladen.</p>
-                      <a class="button secondary archive-download-button" href="/admin/requests/<%= a.id %>/archive.zip">📦 Auftragsakte herunterladen</a>
-                    </details>
-
-                      <details class="status-update-panel">
+                    <div class="admin-card-actions request-bottom-stack">
+                      <details class="status-update-panel request-bottom-panel">
                         <summary>Status ändern & Kundeninfo schreiben</summary>
                         <form action="/admin/status/<%= a.id %>" method="POST" class="status-form status-smart-form" data-status-form>
                           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -888,11 +1117,12 @@
                           <button type="submit">Status übernehmen</button>
                         </form>
                       </details>
+
                       <% const statusMessages = asArray(a.statusMessages); %>
-                      <% if (statusMessages.length) { %>
-                        <details class="status-history-panel">
-                          <summary>Gesendete Status-Infos anzeigen</summary>
-                          <div class="status-history-list">
+                      <details class="status-history-panel request-bottom-panel">
+                        <summary>Gesendete Status-Infos anzeigen <span class="summary-count"><%= statusMessages.length %></span></summary>
+                        <div class="status-history-list">
+                          <% if (statusMessages.length) { %>
                             <% statusMessages.slice(0, 5).forEach(item => { %>
                               <div class="status-history-item">
                                 <strong><%= item.status %></strong>
@@ -900,13 +1130,22 @@
                                 <% if (item.message) { %><p><%= item.message %></p><% } %>
                               </div>
                             <% }) %>
-                          </div>
-                        </details>
-                      <% } %>
+                          <% } else { %>
+                            <p class="evidence-empty">Noch keine gesendeten Status-Infos.</p>
+                          <% } %>
+                        </div>
+                      </details>
+
+                      <details class="archive-lite-panel request-bottom-panel" open>
+                        <summary>Nachweis & Archiv</summary>
+                        <p>Alle wichtigen Auftragsdaten, Rechnung, Fotos, Notizen, Kundenantworten und Statusverlauf als ZIP herunterladen.</p>
+                        <a class="button secondary archive-download-button" href="/admin/requests/<%= a.id %>/archive.zip">📦 Auftragsakte herunterladen</a>
+                      </details>
+
                       <% if (permissions && permissions.canDeleteRequests) { %>
-                        <form action="/admin/delete/<%= a.id %>" method="POST" onsubmit="return confirm('Diese Anfrage wirklich löschen?');">
+                        <form class="request-delete-panel" action="/admin/delete/<%= a.id %>" method="POST" onsubmit="return confirm('Diese Anfrage wirklich löschen?');">
                           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                          <button class="danger ghost-danger" type="submit">Löschen</button>
+                          <button class="danger ghost-danger request-delete-button" type="submit">Löschen</button>
                         </form>
                       <% } %>
                     </div>
@@ -1295,168 +1534,5 @@
   <script src="/admin-tabs.js" defer></script>
   <script src="/inline-edit.js" defer></script>
   <script src="/invoice-lite.js" defer></script>
-<!-- GW_STATUS_STACK_REAL_START -->
-<style>
-  .gw-actions-stack-real {
-    width: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 14px !important;
-    margin: 18px 0 0 !important;
-    padding-top: 16px !important;
-    border-top: 1px solid rgba(23,65,41,.14) !important;
-    clear: both !important;
-  }
-  .gw-actions-stack-real > * {
-    width: 100% !important;
-    max-width: none !important;
-    min-width: 0 !important;
-    box-sizing: border-box !important;
-    display: block !important;
-    margin: 0 !important;
-    grid-column: 1 / -1 !important;
-    flex: none !important;
-  }
-  .gw-actions-stack-real details,
-  .gw-actions-stack-real form,
-  .gw-actions-stack-real section,
-  .gw-actions-stack-real div {
-    max-width: none !important;
-    min-width: 0 !important;
-    box-sizing: border-box !important;
-  }
-  .gw-actions-stack-real summary {
-    white-space: normal !important;
-    line-height: 1.25 !important;
-  }
-  .gw-actions-stack-real input,
-  .gw-actions-stack-real select,
-  .gw-actions-stack-real textarea,
-  .gw-actions-stack-real button {
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-  }
-  .gw-actions-stack-real textarea {
-    width: 100% !important;
-    min-height: 120px !important;
-  }
-  .gw-delete-block-real {
-    width: 100% !important;
-    padding: 16px !important;
-    border: 1px solid rgba(220,38,38,.25) !important;
-    border-radius: 18px !important;
-    background: #fff1f1 !important;
-  }
-  .gw-delete-block-real button,
-  .gw-delete-block-real input[type="submit"],
-  .gw-delete-block-real .danger,
-  .gw-delete-block-real a,
-  .gw-actions-stack-real button.danger {
-    background: #dc2626 !important;
-    color: #fff !important;
-    border: 0 !important;
-    border-radius: 999px !important;
-    padding: 12px 18px !important;
-    font-weight: 900 !important;
-    box-shadow: 0 12px 22px rgba(220,38,38,.22) !important;
-  }
-</style>
-<script>
-(function () {
-  function text(el) {
-    return (el && el.textContent ? el.textContent : '').replace(/\s+/g, ' ').trim().toLowerCase();
-  }
-  function scoreBlock(el) {
-    return text(el).length;
-  }
-  function cardList() {
-    return Array.from(document.querySelectorAll('.admin-request-card, article[id^="request-"], [id^="request-"]'));
-  }
-  function nearestBlock(el, card, type) {
-    if (!el || !card || !card.contains(el)) return null;
-    if (type === 'delete') {
-      const form = el.closest('form');
-      if (form && card.contains(form)) return form;
-      const danger = el.closest('.danger-zone, .delete-zone, .request-action-card, .admin-action-card, .action-card, details, section, div');
-      if (danger && card.contains(danger) && danger !== card) return danger;
-      return el;
-    }
-    const details = el.closest('details');
-    if (details && card.contains(details) && details !== card) return details;
-    const block = el.closest('.request-action-card, .admin-action-card, .action-card, .collapsible-admin-block, .archive-panel, .status-history-panel, .status-action-box, section, form, div');
-    if (block && card.contains(block) && block !== card) return block;
-    return el;
-  }
-  function smallestMatch(card, checker, type) {
-    const candidates = Array.from(card.querySelectorAll('details, summary, form, button, input[type="submit"], a, h3, h4, section, .request-action-card, .admin-action-card, .action-card, .collapsible-admin-block, .archive-panel, .status-history-panel, .status-action-box, .danger-zone, .delete-zone, div'));
-    const matches = candidates.filter(function (el) {
-      if (el.closest('.gw-actions-stack-real')) return false;
-      return checker(text(el), el);
-    }).sort(function (a, b) { return scoreBlock(a) - scoreBlock(b); });
-    for (const m of matches) {
-      const b = nearestBlock(m, card, type);
-      if (b && b !== card && !b.closest('.gw-actions-stack-real')) return b;
-    }
-    return null;
-  }
-  function afterBlock(card) {
-    const candidates = Array.from(card.querySelectorAll('details, section, .collapsible-admin-block, .request-details-clean, div'));
-    const matches = candidates.filter(function (el) {
-      const t = text(el);
-      return t.includes('interne notizen') || t.includes('fotos') || t.includes('kundenantworten') || t.includes('details zum auftrag');
-    }).sort(function (a,b) { return scoreBlock(b) - scoreBlock(a); });
-    return matches[0] || null;
-  }
-  function appendBlock(stack, block, cls) {
-    if (!block) return;
-    if (stack.contains(block)) return;
-    block.classList.add(cls);
-    block.style.width = '100%';
-    block.style.maxWidth = 'none';
-    block.style.minWidth = '0';
-    block.style.display = 'block';
-    block.style.boxSizing = 'border-box';
-    block.style.margin = '0';
-    block.style.gridColumn = '1 / -1';
-    stack.appendChild(block);
-  }
-  function fixCard(card) {
-    if (!card) return;
-    let stack = card.querySelector(':scope > .gw-actions-stack-real');
-    if (!stack) {
-      stack = document.createElement('div');
-      stack.className = 'gw-actions-stack-real';
-      const anchor = afterBlock(card);
-      if (anchor && anchor.parentNode) anchor.insertAdjacentElement('afterend', stack);
-      else card.appendChild(stack);
-    }
-    const statusBlock = smallestMatch(card, function (t) { return t.includes('status') && (t.includes('kundeninfo') || t.includes('kunde') || t.includes('nachricht an kunden')); }, 'status');
-    const sentBlock = smallestMatch(card, function (t) { return t.includes('gesendete') && t.includes('status'); }, 'sent');
-    const archiveBlock = smallestMatch(card, function (t) { return t.includes('nachweis') && t.includes('archiv'); }, 'archive');
-    const deleteBlock = smallestMatch(card, function (t, el) {
-      const value = (el.value || '').toLowerCase();
-      const action = (el.getAttribute && (el.getAttribute('action') || '') || '').toLowerCase();
-      return t === 'löschen' || t.includes('löschen') || value.includes('löschen') || action.includes('delete') || action.includes('loeschen');
-    }, 'delete');
-    appendBlock(stack, statusBlock, 'gw-status-block-real');
-    appendBlock(stack, sentBlock, 'gw-sent-block-real');
-    appendBlock(stack, archiveBlock, 'gw-archive-block-real');
-    appendBlock(stack, deleteBlock, 'gw-delete-block-real');
-    // Reihenfolge hart setzen, falls etwas schon in falscher Reihenfolge im Stack lag.
-    ['.gw-status-block-real', '.gw-sent-block-real', '.gw-archive-block-real', '.gw-delete-block-real'].forEach(function (sel) {
-      const el = stack.querySelector(sel);
-      if (el) stack.appendChild(el);
-    });
-  }
-  function run() { cardList().forEach(fixCard); }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
-  window.addEventListener('load', function () { run(); setTimeout(run, 300); setTimeout(run, 1000); });
-  document.addEventListener('click', function () { setTimeout(run, 100); setTimeout(run, 500); });
-  window.addEventListener('hashchange', function () { setTimeout(run, 150); });
-})();
-</script>
-<!-- GW_STATUS_STACK_REAL_END -->
-  <script src="/status-stack-final.js" defer></script>
 </body>
 </html>

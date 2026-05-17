@@ -3161,3 +3161,88 @@ pre { white-space: pre-wrap; margin: 0; font-family: inherit; color: var(--muted
   font-weight: 900;
   padding: 10px 14px;
 }
+
+
+/* Saubere Stapel-Ansicht für untere Auftragsaktionen */
+.request-bottom-stack,
+.admin-card-actions.request-bottom-stack {
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 12px !important;
+  padding-top: 16px !important;
+  margin-top: 14px !important;
+  border-top: 1px solid rgba(36,77,52,.12) !important;
+  clear: both !important;
+}
+
+.request-bottom-stack > *,
+.admin-card-actions.request-bottom-stack > * {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  display: block !important;
+  flex: none !important;
+  grid-column: 1 / -1 !important;
+}
+
+.request-bottom-panel,
+.request-bottom-stack .status-update-panel,
+.request-bottom-stack .status-history-panel,
+.request-bottom-stack .archive-lite-panel,
+.request-delete-panel {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  border-radius: 18px !important;
+  box-sizing: border-box !important;
+}
+
+.request-bottom-stack summary {
+  width: 100% !important;
+  white-space: normal !important;
+  line-height: 1.35 !important;
+  font-weight: 900 !important;
+  cursor: pointer !important;
+}
+
+.request-bottom-stack input,
+.request-bottom-stack select,
+.request-bottom-stack textarea,
+.request-bottom-stack button {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.request-bottom-stack textarea {
+  width: 100% !important;
+  min-height: 110px !important;
+}
+
+.request-delete-panel {
+  padding: 14px !important;
+  border: 1px solid rgba(220, 38, 38, .22) !important;
+  background: #fff1f1 !important;
+}
+
+.request-delete-button,
+.request-delete-panel .danger,
+.request-delete-panel button {
+  background: #dc2626 !important;
+  color: #fff !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  padding: 12px 18px !important;
+  font-weight: 900 !important;
+  box-shadow: 0 12px 24px rgba(220,38,38,.20) !important;
+}
+
+.request-delete-button:hover,
+.request-delete-panel button:hover {
+  background: #b91c1c !important;
+  color: #fff !important;
+}

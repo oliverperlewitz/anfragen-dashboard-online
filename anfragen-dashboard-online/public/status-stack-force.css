@@ -1,0 +1,116 @@
+/* FINAL Fix: unterer Auftragsbereich strikt untereinander */
+.status-stack-fixed {
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  margin-top: 16px !important;
+  padding-top: 14px !important;
+  border-top: 1px solid rgba(23, 65, 41, 0.12) !important;
+  clear: both !important;
+}
+
+.status-stack-fixed > * {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  grid-column: 1 / -1 !important;
+  flex: none !important;
+  margin: 0 !important;
+}
+
+.status-stack-fixed details,
+.status-stack-fixed section,
+.status-stack-fixed .admin-panel,
+.status-stack-fixed .collapsible-admin-block,
+.status-stack-fixed .request-status-block,
+.status-stack-fixed .archive-panel,
+.status-stack-fixed .status-history-panel,
+.status-stack-fixed form,
+.status-stack-fixed .status-action-box {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  display: block !important;
+  box-sizing: border-box !important;
+}
+
+.status-stack-fixed summary {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  white-space: normal !important;
+  line-height: 1.25 !important;
+}
+
+.status-stack-fixed input,
+.status-stack-fixed select,
+.status-stack-fixed textarea,
+.status-stack-fixed button {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.status-stack-fixed textarea {
+  min-height: 120px !important;
+  width: 100% !important;
+}
+
+.status-stack-fixed .stack-status-block,
+.status-stack-fixed .stack-sent-block,
+.status-stack-fixed .stack-archive-block,
+.status-stack-fixed .stack-delete-block {
+  border-radius: 18px !important;
+}
+
+.status-stack-fixed .stack-status-block {
+  order: 1 !important;
+}
+.status-stack-fixed .stack-sent-block {
+  order: 2 !important;
+}
+.status-stack-fixed .stack-archive-block {
+  order: 3 !important;
+}
+.status-stack-fixed .stack-delete-block {
+  order: 4 !important;
+}
+
+.status-stack-fixed .stack-delete-block {
+  padding: 14px !important;
+  border: 1px solid rgba(220, 38, 38, 0.22) !important;
+  background: #fff1f1 !important;
+  text-align: left !important;
+}
+
+.status-stack-fixed .stack-delete-block button,
+.status-stack-fixed .stack-delete-block input[type="submit"],
+.status-stack-fixed .stack-delete-block .danger,
+.status-stack-fixed .stack-delete-block a,
+.status-stack-fixed button.danger,
+.status-stack-fixed .danger button {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  padding: 12px 18px !important;
+  font-weight: 900 !important;
+  box-shadow: 0 10px 22px rgba(220, 38, 38, .20) !important;
+}
+
+.status-stack-fixed .stack-delete-block button:hover,
+.status-stack-fixed .stack-delete-block input[type="submit"]:hover {
+  background: #b91c1c !important;
+}
+
+/* kaputte alte Spaltenlayouts innerhalb der Auftragskarte neutralisieren */
+.admin-request-card .request-actions-grid,
+.admin-request-card .status-action-grid,
+.admin-request-card .request-bottom-grid,
+.admin-request-card .admin-actions-grid,
+.admin-request-card .archive-status-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  grid-template-columns: 1fr !important;
+  align-items: stretch !important;
+}

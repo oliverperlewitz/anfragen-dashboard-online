@@ -3163,86 +3163,99 @@ pre { white-space: pre-wrap; margin: 0; font-family: inherit; color: var(--muted
 }
 
 
-/* Saubere Stapel-Ansicht für untere Auftragsaktionen */
-.request-bottom-stack,
-.admin-card-actions.request-bottom-stack {
-  width: 100% !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: stretch !important;
-  justify-content: flex-start !important;
+/* Auftragsaktionen sauber untereinander */
+.admin-card-actions.stacked-action-area {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
   gap: 12px !important;
+  align-items: stretch !important;
+  justify-content: stretch !important;
+  width: 100% !important;
   padding-top: 16px !important;
-  margin-top: 14px !important;
-  border-top: 1px solid rgba(36,77,52,.12) !important;
-  clear: both !important;
+  border-top: 1px solid rgba(36, 77, 52, 0.10) !important;
 }
 
-.request-bottom-stack > *,
-.admin-card-actions.request-bottom-stack > * {
+.stacked-action-area > .action-block,
+.stacked-action-area > details,
+.stacked-action-area > form {
   width: 100% !important;
   max-width: none !important;
   min-width: 0 !important;
   box-sizing: border-box !important;
   margin: 0 !important;
-  display: block !important;
-  flex: none !important;
-  grid-column: 1 / -1 !important;
 }
 
-.request-bottom-panel,
-.request-bottom-stack .status-update-panel,
-.request-bottom-stack .status-history-panel,
-.request-bottom-stack .archive-lite-panel,
-.request-delete-panel {
-  width: 100% !important;
-  max-width: none !important;
-  min-width: 0 !important;
+.stacked-action-area .status-update-panel,
+.stacked-action-area .status-history-panel,
+.stacked-action-area .archive-lite-panel,
+.stacked-action-area .delete-action-block {
   border-radius: 18px !important;
-  box-sizing: border-box !important;
+  border: 1px solid rgba(36, 77, 52, 0.14) !important;
+  background: #fffdf7 !important;
+  overflow: hidden !important;
 }
 
-.request-bottom-stack summary {
-  width: 100% !important;
-  white-space: normal !important;
-  line-height: 1.35 !important;
-  font-weight: 900 !important;
+.stacked-action-area .status-update-panel summary,
+.stacked-action-area .status-history-panel summary,
+.stacked-action-area .archive-lite-panel summary {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-height: 46px !important;
+  padding: 13px 16px !important;
+  font-weight: 950 !important;
+  color: #123820 !important;
+  background: rgba(36, 77, 52, 0.06) !important;
   cursor: pointer !important;
 }
 
-.request-bottom-stack input,
-.request-bottom-stack select,
-.request-bottom-stack textarea,
-.request-bottom-stack button {
+.stacked-action-area .status-smart-form,
+.stacked-action-area .status-history-list {
+  padding: 16px !important;
+}
+
+.stacked-action-area .archive-lite-panel {
+  padding: 0 !important;
+  background: #f8fbf4 !important;
+}
+
+.stacked-action-area .archive-lite-panel p {
+  margin: 0 !important;
+  padding: 14px 16px 8px !important;
+  color: #5d6d5d !important;
+  line-height: 1.45 !important;
+}
+
+.stacked-action-area .archive-download-button {
+  margin: 0 16px 16px !important;
+  width: auto !important;
   max-width: 100% !important;
-  box-sizing: border-box !important;
 }
 
-.request-bottom-stack textarea {
-  width: 100% !important;
-  min-height: 110px !important;
-}
-
-.request-delete-panel {
-  padding: 14px !important;
-  border: 1px solid rgba(220, 38, 38, .22) !important;
+.stacked-action-area .delete-action-block {
   background: #fff1f1 !important;
+  border-color: rgba(220, 38, 38, 0.25) !important;
+  padding: 14px 16px !important;
 }
 
-.request-delete-button,
-.request-delete-panel .danger,
-.request-delete-panel button {
+.stacked-action-area .delete-action-block .ghost-danger {
   background: #dc2626 !important;
-  color: #fff !important;
+  color: #ffffff !important;
   border: 0 !important;
   border-radius: 999px !important;
   padding: 12px 18px !important;
-  font-weight: 900 !important;
-  box-shadow: 0 12px 24px rgba(220,38,38,.20) !important;
+  font-weight: 950 !important;
+  width: 100% !important;
+  justify-content: center !important;
 }
 
-.request-delete-button:hover,
-.request-delete-panel button:hover {
-  background: #b91c1c !important;
-  color: #fff !important;
+.stacked-action-area .delete-action-block .ghost-danger:hover {
+  background: #991b1b !important;
+  color: #ffffff !important;
+}
+
+@media (max-width: 720px) {
+  .stacked-action-area .status-form-grid {
+    grid-template-columns: 1fr !important;
+  }
 }

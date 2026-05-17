@@ -6,7 +6,6 @@
   <title>Admin Dashboard</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/invoice-lite.css">
-  <link rel="stylesheet" href="/status-stack-final.css">
 </head>
 <body class="admin-body admin-pro-body">
   <% 
@@ -846,14 +845,8 @@
                       </div>
                     </details>
 
-                    <div class="admin-card-actions">
-                    <details class="archive-lite-panel" open>
-                      <summary>Nachweis & Archiv</summary>
-                      <p>Alle wichtigen Auftragsdaten, Rechnung, Fotos, Notizen, Kundenantworten und Statusverlauf als ZIP herunterladen.</p>
-                      <a class="button secondary archive-download-button" href="/admin/requests/<%= a.id %>/archive.zip">📦 Auftragsakte herunterladen</a>
-                    </details>
-
-                      <details class="status-update-panel">
+                    <div class="admin-card-actions stacked-action-area">
+                      <details class="status-update-panel action-block status-action-block" open>
                         <summary>Status ändern & Kundeninfo schreiben</summary>
                         <form action="/admin/status/<%= a.id %>" method="POST" class="status-form status-smart-form" data-status-form>
                           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -888,11 +881,12 @@
                           <button type="submit">Status übernehmen</button>
                         </form>
                       </details>
+
                       <% const statusMessages = asArray(a.statusMessages); %>
-                      <% if (statusMessages.length) { %>
-                        <details class="status-history-panel">
-                          <summary>Gesendete Status-Infos anzeigen</summary>
-                          <div class="status-history-list">
+                      <details class="status-history-panel action-block status-history-action-block">
+                        <summary>Gesendete Status-Infos anzeigen</summary>
+                        <div class="status-history-list">
+                          <% if (statusMessages.length) { %>
                             <% statusMessages.slice(0, 5).forEach(item => { %>
                               <div class="status-history-item">
                                 <strong><%= item.status %></strong>
@@ -900,11 +894,20 @@
                                 <% if (item.message) { %><p><%= item.message %></p><% } %>
                               </div>
                             <% }) %>
-                          </div>
-                        </details>
-                      <% } %>
+                          <% } else { %>
+                            <p class="evidence-empty">Noch keine gesendeten Status-Infos.</p>
+                          <% } %>
+                        </div>
+                      </details>
+
+                      <details class="archive-lite-panel action-block archive-action-block" open>
+                        <summary>Nachweis & Archiv</summary>
+                        <p>Alle wichtigen Auftragsdaten, Rechnung, Fotos, Notizen, Kundenantworten und Statusverlauf als ZIP herunterladen.</p>
+                        <a class="button secondary archive-download-button" href="/admin/requests/<%= a.id %>/archive.zip">📦 Auftragsakte herunterladen</a>
+                      </details>
+
                       <% if (permissions && permissions.canDeleteRequests) { %>
-                        <form action="/admin/delete/<%= a.id %>" method="POST" onsubmit="return confirm('Diese Anfrage wirklich löschen?');">
+                        <form class="delete-action-block action-block" action="/admin/delete/<%= a.id %>" method="POST" onsubmit="return confirm('Diese Anfrage wirklich löschen?');">
                           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                           <button class="danger ghost-danger" type="submit">Löschen</button>
                         </form>
@@ -1457,6 +1460,5 @@
 })();
 </script>
 <!-- GW_STATUS_STACK_REAL_END -->
-  <script src="/status-stack-final.js" defer></script>
 </body>
 </html>

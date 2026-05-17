@@ -1,0 +1,80 @@
+/* FINALER FIX: Untere Auftrags-Aktionen immer untereinander */
+.gw-final-action-stack {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 12px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-top: 16px !important;
+  padding-top: 14px !important;
+  border-top: 1px solid rgba(20, 64, 38, 0.12) !important;
+  clear: both !important;
+}
+
+.gw-final-action-stack > * {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  float: none !important;
+  flex: 0 0 auto !important;
+  transform: none !important;
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+}
+
+.gw-final-action-stack details,
+.gw-final-action-stack section,
+.gw-final-action-stack article,
+.gw-final-action-stack form,
+.gw-final-action-stack .admin-panel,
+.gw-final-action-stack .status-card,
+.gw-final-action-stack .archive-card {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.gw-final-action-stack summary {
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+}
+
+.gw-final-action-stack textarea,
+.gw-final-action-stack input,
+.gw-final-action-stack select {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.gw-final-delete-area {
+  width: 100% !important;
+  display: flex !important;
+  justify-content: flex-start !important;
+  padding: 14px !important;
+  border: 1px solid rgba(185, 28, 28, 0.18) !important;
+  background: #fff1f1 !important;
+  border-radius: 18px !important;
+  box-sizing: border-box !important;
+}
+
+.gw-final-delete-area button,
+.gw-final-delete-area .danger,
+.gw-final-delete-area [type="submit"] {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  padding: 12px 18px !important;
+  font-weight: 900 !important;
+  box-shadow: 0 10px 22px rgba(220, 38, 38, 0.18) !important;
+}
+
+.gw-final-delete-area button:hover,
+.gw-final-delete-area .danger:hover,
+.gw-final-delete-area [type="submit"]:hover {
+  background: #b91c1c !important;
+}

@@ -6,7 +6,6 @@
   <title>Admin Dashboard</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/invoice-lite.css">
-  <link rel="stylesheet" href="/status-stack-final.css">
 </head>
 <body class="admin-body admin-pro-body">
   <% 
@@ -1457,6 +1456,5 @@
 })();
 </script>
 <!-- GW_STATUS_STACK_REAL_END -->
-  <script src="/status-stack-final.js" defer></script>
 </body>
 </html>

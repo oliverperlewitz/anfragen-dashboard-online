@@ -1,52 +1,21 @@
 (function () {
   const STATUS_TEMPLATES = {
-    neu: [
-      'Danke für deine Anfrage. Wir haben deine Angaben erhalten und prüfen sie jetzt. Wir melden uns zeitnah mit den nächsten Schritten.'
-    ],
-    'in bearbeitung': [
-      'Wir bearbeiten deine Anfrage jetzt und melden uns zeitnah mit den nächsten Schritten bei dir.'
-    ],
-    'in arbeit': [
-      'Dein Auftrag ist jetzt in Arbeit. Wir kümmern uns um die Umsetzung und halten dich bei wichtigen Änderungen auf dem Laufenden.'
-    ],
-    rueckfrage: [
-      'Damit wir deine Anfrage richtig einschätzen können, benötigen wir noch ein paar zusätzliche Informationen von dir.'
-    ],
-    rückfrage: [
-      'Damit wir deine Anfrage richtig einschätzen können, benötigen wir noch ein paar zusätzliche Informationen von dir.'
-    ],
-    'wartet auf kunde': [
-      'Wir warten aktuell noch auf deine Rückmeldung, bevor wir mit den nächsten Schritten weitermachen können.'
-    ],
-    'besichtigung geplant': [
-      'Wir haben einen Besichtigungstermin für deine Anfrage eingeplant. Danach können wir den Aufwand genauer einschätzen.'
-    ],
-    'termin bestätigt': [
-      'Dein Termin wurde bestätigt. Wir freuen uns auf den Auftrag und melden uns, falls vorher noch etwas benötigt wird.'
-    ],
-    'angebot erstellt': [
-      'Wir haben dein Angebot vorbereitet und melden uns mit den Details. Bei Fragen kannst du uns jederzeit antworten.'
-    ],
-    erledigt: [
-      'Dein Auftrag wurde erfolgreich abgeschlossen. Vielen Dank für dein Vertrauen in GrünWerk Gartenbau.'
-    ],
-    storniert: [
-      'Deine Anfrage wurde storniert. Falls du später wieder Unterstützung brauchst, kannst du dich jederzeit erneut bei uns melden.'
-    ],
-    abgelehnt: [
-      'Danke für deine Anfrage. Leider können wir diesen Auftrag aktuell nicht passend umsetzen.'
-    ]
+    neu: ['Danke für deine Anfrage. Wir haben deine Angaben erhalten und prüfen sie jetzt. Wir melden uns zeitnah mit den nächsten Schritten.'],
+    'in bearbeitung': ['Wir bearbeiten deine Anfrage jetzt und melden uns zeitnah mit den nächsten Schritten bei dir.'],
+    'in arbeit': ['Dein Auftrag ist jetzt in Arbeit. Wir kümmern uns um die Umsetzung und halten dich bei wichtigen Änderungen auf dem Laufenden.'],
+    rueckfrage: ['Damit wir deine Anfrage richtig einschätzen können, benötigen wir noch ein paar zusätzliche Informationen von dir.'],
+    rückfrage: ['Damit wir deine Anfrage richtig einschätzen können, benötigen wir noch ein paar zusätzliche Informationen von dir.'],
+    'wartet auf kunde': ['Wir warten aktuell noch auf deine Rückmeldung, bevor wir mit den nächsten Schritten weitermachen können.'],
+    'besichtigung geplant': ['Wir haben einen Besichtigungstermin für deine Anfrage eingeplant. Danach können wir den Aufwand genauer einschätzen.'],
+    'termin bestätigt': ['Dein Termin wurde bestätigt. Wir freuen uns auf den Auftrag und melden uns, falls vorher noch etwas benötigt wird.'],
+    'angebot erstellt': ['Wir haben dein Angebot vorbereitet und melden uns mit den Details. Bei Fragen kannst du uns jederzeit antworten.'],
+    erledigt: ['Dein Auftrag wurde erfolgreich abgeschlossen. Vielen Dank für dein Vertrauen in GrünWerk Gartenbau.'],
+    storniert: ['Deine Anfrage wurde storniert. Falls du später wieder Unterstützung brauchst, kannst du dich jederzeit erneut bei uns melden.'],
+    abgelehnt: ['Danke für deine Anfrage. Leider können wir diesen Auftrag aktuell nicht passend umsetzen.']
   };
 
   function normalizeStatus(value) {
-    return String(value || '')
-      .toLowerCase()
-      .replace(/[_-]+/g, ' ')
-      .replace(/ae/g, 'ä')
-      .replace(/ue/g, 'ü')
-      .replace(/oe/g, 'ö')
-      .replace(/\s+/g, ' ')
-      .trim();
+    return String(value || '').toLowerCase().replace(/[_-]+/g, ' ').replace(/ae/g, 'ä').replace(/ue/g, 'ü').replace(/oe/g, 'ö').replace(/\s+/g, ' ').trim();
   }
 
   function findTemplate(statusValue) {
@@ -84,11 +53,8 @@
       const templateSelect = templateBox.querySelector('select');
 
       const statusLabel = statusSelect.closest('label') || statusSelect.parentElement;
-      if (statusLabel && statusLabel.parentElement) {
-        statusLabel.insertAdjacentElement('afterend', templateBox);
-      } else {
-        statusSelect.insertAdjacentElement('afterend', templateBox);
-      }
+      if (statusLabel && statusLabel.parentElement) statusLabel.insertAdjacentElement('afterend', templateBox);
+      else statusSelect.insertAdjacentElement('afterend', templateBox);
 
       function rebuildTemplates(fillWhenEmpty) {
         const templates = findTemplate(statusSelect.value);
@@ -106,40 +72,51 @@
       }
 
       statusSelect.addEventListener('change', () => rebuildTemplates(true));
-      templateSelect.addEventListener('change', () => {
-        if (templateSelect.value) textarea.value = templateSelect.value;
-      });
+      templateSelect.addEventListener('change', () => { if (templateSelect.value) textarea.value = templateSelect.value; });
       rebuildTemplates(false);
     });
   }
 
+  function getActionElement(element) {
+    if (!element) return null;
+    return element.closest('details, .admin-section-block, .status-update-panel, .status-history-panel, .evidence-section, .request-edit-block, form, .request-action-card, .danger-zone') || element;
+  }
+
+  function findByText(root, needles) {
+    const lowerNeedles = needles.map(n => n.toLowerCase());
+    const elements = Array.from(root.querySelectorAll('details, .admin-section-block, .status-update-panel, .status-history-panel, .evidence-section, .request-edit-block, form, button, a, div'));
+    return getActionElement(elements.find((el) => {
+      const text = (el.innerText || '').toLowerCase();
+      return lowerNeedles.some(n => text.includes(n));
+    }));
+  }
+
+  function ensureCard(element, className) {
+    if (!element) return null;
+    element.classList.add('request-action-card', className);
+    return element;
+  }
+
   function classifyActionPanels() {
     document.querySelectorAll('.request-expanded-content').forEach((content) => {
-      if (content.dataset.actionGridReady === '1') return;
-      const children = Array.from(content.children);
-      const cards = children.filter((element) => {
-        const text = (element.innerText || '').toLowerCase();
-        return text.includes('nachweis') ||
-          text.includes('status ändern') ||
-          text.includes('kundeninfo') ||
-          text.includes('gesendete status') ||
-          text.includes('löschen');
-      });
+      const statusCard = ensureCard(findByText(content, ['status ändern', 'kundeninfo schreiben']), 'status-action-card');
+      const sentCard = ensureCard(findByText(content, ['gesendete status', 'status-infos anzeigen']), 'sent-status-action-card');
+      const archiveCard = ensureCard(findByText(content, ['nachweis', 'auftragsakte herunterladen']), 'archive-action-card');
+      const dangerCard = ensureCard(findByText(content, ['löschen']), 'danger-action-card');
 
-      if (cards.length < 2) return;
-      content.dataset.actionGridReady = '1';
-      const wrapper = document.createElement('div');
-      wrapper.className = 'request-actions-grid';
-      cards[0].before(wrapper);
+      const ordered = [statusCard, sentCard, archiveCard, dangerCard].filter(Boolean);
+      if (ordered.length < 2) return;
 
-      cards.forEach((card) => {
-        const text = (card.innerText || '').toLowerCase();
-        card.classList.add('request-action-card');
-        if (text.includes('status ändern') || text.includes('kundeninfo')) card.classList.add('status-action-card');
-        if (text.includes('nachweis')) card.classList.add('archive-action-card');
-        if (text.includes('gesendete status')) card.classList.add('sent-status-action-card');
-        if (text.includes('löschen')) card.classList.add('danger-action-card');
-        wrapper.appendChild(card);
+      let wrapper = content.querySelector(':scope > .request-actions-stack');
+      if (!wrapper) {
+        wrapper = document.createElement('div');
+        wrapper.className = 'request-actions-stack';
+        const first = ordered[0];
+        first.parentNode.insertBefore(wrapper, first);
+      }
+
+      ordered.forEach(card => {
+        if (card.parentElement !== wrapper) wrapper.appendChild(card);
       });
     });
   }
@@ -152,5 +129,8 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 
-  document.addEventListener('click', () => setTimeout(boot, 30));
+  document.addEventListener('click', () => setTimeout(boot, 50));
+  document.addEventListener('toggle', () => setTimeout(boot, 50), true);
+  const observer = new MutationObserver(() => setTimeout(boot, 50));
+  observer.observe(document.documentElement, { childList: true, subtree: true });
 })();
